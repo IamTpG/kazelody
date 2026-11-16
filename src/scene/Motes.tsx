@@ -47,7 +47,7 @@ void main() {
 }
 `
 
-export function Motes({ count = 420 }: { count?: number }) {
+export function Motes({ count = 420, occlude = true }: { count?: number; occlude?: boolean }) {
   const dpr = useThree((s) => s.viewport.dpr)
 
   const geometry = useMemo(() => {
@@ -77,9 +77,11 @@ export function Motes({ count = 420 }: { count?: number }) {
         fragmentShader: fragment,
         transparent: true,
         depthWrite: false,
+        // Trên nền 2.5D không có hình khối thật để che hạt → tắt depth test.
+        depthTest: occlude,
         blending: THREE.AdditiveBlending,
       }),
-    [dpr],
+    [dpr, occlude],
   )
 
   useEffect(
