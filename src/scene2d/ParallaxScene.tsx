@@ -73,6 +73,9 @@ uniform float uWindTime;
 uniform float uWindStrength;
 uniform vec2 uTexel;
 uniform float uSharpen;
+uniform vec4 uTrail[10];
+uniform float uNow;
+uniform float uAspect;
 varying vec2 vUv;
 varying float vW;
 
@@ -92,6 +95,17 @@ void main() {
     // Cả mảng cỏ gần ngả qua lại chậm theo gió (tần số thấp → trông như cỏ đung đưa, không như méo ảnh).
     float sway = noise(vec2(uv.x * 2.5 - uWindTime * 0.3, uv.y * 1.2 + uWindTime * 0.05)) - 0.5;
     uv.x += sway * 0.006 * near * uWindStrength;
+    // Chuột lướt qua cỏ: cỏ ngả theo hướng chuột rồi lắc lại và tắt dần (như gió quét qua), mỗi cụm cỏ
+    // lệch pha một chút nên là cỏ lay chứ không phải cả ảnh bị kéo méo.
+    float push = 0.0;
+    for (int i = 0; i < 10; i++) {
+      float age = uNow - uTrail[i].z;
+      if (age < 0.0 || age > 2.6) continue;
+      vec2 d = (vUv - uTrail[i].xy) * vec2(uAspect, 1.0) * vec2(1.0, 2.2);
+      push += uTrail[i].w * exp(-dot(d, d) / 0.008) * exp(-age * 2.2) * cos(age * 6.5);
+    }
+    float blade = 0.55 + 0.9 * noise(vec2(uv.x * 160.0, uv.y * 9.0));
+    uv.x -= push * 0.0014 * near * blade;
   }
   vec3 a = sharp(uPlateA, uv);
   vec3 col = uMix > 0.0 ? mix(a, sharp(uPlateB, uv), uMix) : a;
@@ -106,10 +120,15 @@ uniform sampler2D uTreesB;
 uniform float uMix;
 uniform float uWindTime;
 uniform float uWindStrength;
+uniform vec2 uImg;
+uniform vec2 uHub;
+uniform float uCut;
 varying vec2 vUv;
 ${noiseGlsl}
 void main() {
   vec2 uv = vUv;
+  // Quanh trục cối xay không có cây: chỗ đó chỉ còn mảnh vụn của cánh quạt cũ trong ảnh render → bỏ.
+  if (uCut > 0.0 && length(vec2(uv.x * uImg.x, (1.0 - uv.y) * uImg.y) - uHub) < uCut) discard;
   // Tán lá lay nhiều hơn ở phần cao (uv.y lớn = phía trên ảnh), gốc cây đứng yên.
   float top = smoothstep(0.2, 0.9, uv.y);
   float t = uWindTime;
@@ -127,7 +146,8 @@ void main() {
 }
 `
 
-// Cánh quạt: một ô vuông quanh trục cối xay, lấy mẫu ảnh cánh quạt đã cắt sau khi xoay trong mặt phẳng của chúng.
+// Cánh quạt: vẽ bằng hình học trong mặt phẳng quay của chúng (4 cánh vải + gân), rồi chiếu lên màn hình bằng
+// hai trục của mặt phẳng đó. Vẽ trong một ô vuông quanh trục cối xay, đường nét sắc ở mọi độ phân giải.
 const sailsVertex = /* glsl */ `
 uniform sampler2D uWeight;
 uniform vec2 uSpan;
@@ -146,28 +166,32 @@ void main() {
 }
 `
 const sailsFragment = /* glsl */ `
-uniform sampler2D uSails;
-uniform vec4 uBox;
+uniform vec3 uCloth;
+uniform vec3 uArm;
 uniform vec2 uHub;
-uniform mat2 uM;
 uniform mat2 uInv;
 uniform float uAngle;
-uniform float uOpacity;
+uniform float uEdge;
 varying vec2 vPx;
 void main() {
   vec2 L = uInv * (vPx - uHub);
   float c = cos(uAngle);
   float s = sin(uAngle);
   // nội dung quay một góc uAngle → lấy mẫu ở toạ độ quay ngược lại
-  vec2 Ls = vec2(c * L.x + s * L.y, -s * L.x + c * L.y);
-  vec2 ps = uHub + uM * Ls;
-  vec2 uv = (ps - uBox.xy) / (uBox.zw - uBox.xy);
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
-  uv.y = 1.0 - uv.y;
-  vec4 t = texture2D(uSails, uv);
-  float a = t.a * uOpacity;
+  vec2 p = vec2(c * L.x + s * L.y, -s * L.x + c * L.y);
+  float cloth = 0.0;
+  float arm = 0.0;
+  for (int k = 0; k < 4; k++) {
+    // gân: thanh hẹp từ trục ra đầu cánh; vải: tấm chữ nhật lệch về một phía của gân
+    float dArm = max(abs(p.x) - 0.2, max(-p.y, p.y - 9.0));
+    float dCloth = max(abs(p.x - 0.95) - 0.85, abs(p.y - 5.4) - 3.5);
+    arm = max(arm, 1.0 - smoothstep(-uEdge, uEdge, dArm));
+    cloth = max(cloth, 1.0 - smoothstep(-uEdge, uEdge, dCloth));
+    p = vec2(-p.y, p.x);
+  }
+  float a = max(cloth, arm);
   if (a < 0.004) discard;
-  gl_FragColor = vec4(t.rgb, a);
+  gl_FragColor = vec4(mix(uCloth, uArm, arm), a);
   #include <colorspace_fragment>
 }
 `
@@ -196,18 +220,26 @@ const view = {
   uSharpen: { value: SHARPEN },
 }
 
-/** Uniform riêng của hai ô cánh quạt (mốc A và mốc B, trộn bằng độ mờ). */
-const sailLook = [0, 1].map(() => ({
-  uSails: { value: null as THREE.Texture | null },
-  uBox: { value: new THREE.Vector4() },
+/** Uniform riêng của cánh quạt cối xay. */
+const sailLook = {
+  uCloth: { value: new THREE.Color() },
+  uArm: { value: new THREE.Color() },
   uHub: { value: new THREE.Vector2() },
   uRadius: { value: 1 },
-  // mat2 (cột trước): three nhận mảng phẳng
-  uM: { value: new Float32Array(4) },
+  // mat2 (theo cột): three nhận mảng phẳng
   uInv: { value: new Float32Array(4) },
   uAngle: { value: 0 },
-  uOpacity: { value: 0 },
-}))
+  uEdge: { value: 0.2 },
+}
+
+// Vết chuột trên cỏ: 10 điểm gần nhất (x, y trong toạ độ ảnh; thời điểm; hướng × độ mạnh).
+const TRAIL = 10
+const trail = {
+  uTrail: { value: Array.from({ length: TRAIL }, () => new THREE.Vector4(0, 0, -100, 0)) },
+  uNow: { value: 0 },
+  uAspect: { value: 16 / 9 },
+}
+const trailState = { head: 0, last: new THREE.Vector2(Number.NaN, 0) }
 
 const tints = new Map<string, THREE.Color>()
 function tintColor(hex: string) {
@@ -218,24 +250,25 @@ function tintColor(hex: string) {
 const tmp = new THREE.Vector2()
 const tintTmp = new THREE.Color()
 let millAngle = 0
+let gustLevel = 0
 
-function setSails(k: 0 | 1, scene: SceneManifest, idx: number, tex: THREE.Texture | null, opacity: number) {
-  const u = sailLook[k]
-  const h = scene.hours[idx]
-  if (!tex || !h.mill || !h.sailBox || opacity <= 0) {
-    u.uOpacity.value = 0
-    return
-  }
-  const { hub, ax, ay, length } = h.mill
-  u.uSails.value = tex
-  u.uBox.value.set(...h.sailBox)
+// Gân cánh là màu ngói: vải nhân với hệ số này (trong không gian tuyến tính)
+const ARM_TINT = new THREE.Color(0.72, 0.32, 0.26)
+
+function setSails(scene: SceneManifest, ia: number, ib: number, f: number) {
+  const mill = scene.mill
+  const u = sailLook
+  if (!mill) return
+  const { hub, ax, ay, length } = mill
   u.uHub.value.set(hub[0], hub[1])
-  u.uRadius.value = Math.max(Math.hypot(ax[0], ax[1]), Math.hypot(ay[0], ay[1])) * length * 1.1
+  const unit = (Math.hypot(ax[0], ax[1]) + Math.hypot(ay[0], ay[1])) / 2
+  u.uRadius.value = Math.max(Math.hypot(ax[0], ax[1]), Math.hypot(ay[0], ay[1])) * length * 1.15
+  u.uEdge.value = 0.7 / unit
   const det = ax[0] * ay[1] - ax[1] * ay[0]
-  u.uM.value.set([ax[0], ax[1], ay[0], ay[1]])
   u.uInv.value.set([ay[1] / det, -ax[1] / det, -ay[0] / det, ax[0] / det])
+  u.uCloth.value.copy(tintColor(scene.hours[ia].cloth)).lerp(tintTmp.copy(tintColor(scene.hours[ib].cloth)), f)
+  u.uArm.value.copy(u.uCloth.value).multiply(ARM_TINT)
   u.uAngle.value = millAngle
-  u.uOpacity.value = opacity
 }
 
 export function ParallaxScene({
@@ -259,7 +292,7 @@ export function ParallaxScene({
   const plateMaterial = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { ...view, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
+        uniforms: { ...view, ...trail, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
         vertexShader: vertex,
         fragmentShader: plateFragment,
       }),
@@ -268,28 +301,33 @@ export function ParallaxScene({
   const treeMaterial = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { ...view, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
+        uniforms: {
+          ...view,
+          uWindTime: shared.uWindTime,
+          uWindStrength: shared.uWindStrength,
+          uImg: { value: new THREE.Vector2(scene.width, scene.height) },
+          uHub: { value: new THREE.Vector2(...(scene.mill?.hub ?? [0, 0])) },
+          // bán kính ≈ chiều dài cánh quạt trên màn hình + chút dư
+          uCut: { value: scene.mill ? Math.max(Math.hypot(...scene.mill.ax), Math.hypot(...scene.mill.ay)) * scene.mill.length * 1.3 : 0 },
+        },
         vertexShader: vertex,
         fragmentShader: treesFragment,
         transparent: true,
         depthTest: false,
         depthWrite: false,
       }),
-    [],
+    [scene],
   )
-  const sailMaterials = useMemo(
+  const sailMaterial = useMemo(
     () =>
-      sailLook.map(
-        (look) =>
-          new THREE.ShaderMaterial({
-            uniforms: { ...look, uWeight: view.uWeight, uSpan: view.uSpan, uOffset: view.uOffset, uImg: { value: new THREE.Vector2(scene.width, scene.height) } },
-            vertexShader: sailsVertex,
-            fragmentShader: sailsFragment,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false,
-          }),
-      ),
+      new THREE.ShaderMaterial({
+        uniforms: { ...sailLook, uWeight: view.uWeight, uSpan: view.uSpan, uOffset: view.uOffset, uImg: { value: new THREE.Vector2(scene.width, scene.height) } },
+        vertexShader: sailsVertex,
+        fragmentShader: sailsFragment,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      }),
     [scene.width, scene.height],
   )
 
@@ -299,9 +337,9 @@ export function ParallaxScene({
       sailGeometry.dispose()
       plateMaterial.dispose()
       treeMaterial.dispose()
-      for (const m of sailMaterials) m.dispose()
+      sailMaterial.dispose()
     },
-    [geometry, sailGeometry, plateMaterial, treeMaterial, sailMaterials],
+    [geometry, sailGeometry, plateMaterial, treeMaterial, sailMaterial],
   )
 
   useFrame(({ pointer }, rawDt) => {
@@ -322,13 +360,16 @@ export function ParallaxScene({
 
     // Gió (dùng chung với hạt bay)
     wind.gust = Math.max(0, wind.gust - dt * 0.45)
-    const strength = 1 + wind.gust * 1.8
+    // Nhấp chuột đặt wind.gust = 1 ngay lập tức; mọi chuyển động chỉ đi theo mức đã làm mượt để cơn gió
+    // dâng lên và dịu xuống dần, không làm hình giật.
+    gustLevel += (wind.gust - gustLevel) * (1 - Math.exp(-dt * (wind.gust > gustLevel ? 2.2 : 1.2)))
+    const strength = 1 + gustLevel * 1.8
     shared.uWindStrength.value = strength
     shared.uTime.value += dt
     shared.uWindTime.value += dt * strength
 
     // Cánh quạt quay theo gió: tốc độ nền MILL_RPM, cơn gió làm nhanh thêm một chút (không quá nhanh).
-    const gustBoost = 1 + MILL_GUST_BOOST * Math.min(1, wind.gust)
+    const gustBoost = 1 + MILL_GUST_BOOST * Math.min(1, gustLevel)
     millAngle -= dt * ((MILL_RPM * Math.PI * 2) / 60) * gustBoost
 
     // Parallax theo chuột + "thở" nhẹ + khung hình chao theo gió (mạnh hơn khi có cơn gió).
@@ -346,6 +387,24 @@ export function ParallaxScene({
       .multiply(PARALLAX)
     s.offset.lerp(tmp, 1 - Math.exp(-dt * 2.5))
     u.uOffset.value.copy(s.offset)
+
+    // Vết chuột: thêm một điểm mỗi khi chuột đi được một quãng; cỏ gần đó sẽ lay theo.
+    trail.uNow.value = t
+    trail.uAspect.value = scene.aspect
+    const ts = trailState
+    if (Number.isNaN(ts.last.x)) ts.last.set(pointer.x, pointer.y)
+    const dx = pointer.x - ts.last.x
+    const dy = pointer.y - ts.last.y
+    if (Math.hypot(dx, dy) > 0.03) {
+      const g = tmp.set(pointer.x, pointer.y).sub(s.offset)
+      const x = g.x * 0.5 * u.uSpan.value.x + 0.5
+      const y = g.y * 0.5 * u.uSpan.value.y + 0.5
+      let dir = THREE.MathUtils.clamp(dx * 28, -1, 1)
+      if (Math.abs(dir) < 0.3) dir = (ts.head % 2 ? 0.3 : -0.3) * (1 + Math.abs(dy) * 4)
+      trail.uTrail.value[ts.head % TRAIL].set(x, y, t, dir)
+      ts.head++
+      ts.last.set(pointer.x, pointer.y)
+    }
 
     // Giờ trong ngày: thanh trượt cho giá trị liên tục → trộn hai mốc kề nhau theo phần lẻ.
     // Làm mượt để bấm phím / nhảy mốc vẫn chuyển dần chứ không giật.
@@ -371,8 +430,7 @@ export function ParallaxScene({
     u.uTreesB.value = B.trees
     u.uMix.value = ia === ib ? 0 : f
     nightLook.uPlate.value = f < 0.5 ? A.plate : B.plate
-    setSails(0, scene, ia, A.sails, ia === ib ? 1 : 1 - f)
-    setSails(1, scene, ib, ia === ib ? null : B.sails, f)
+    setSails(scene, ia, ib, ia === ib ? 0 : f)
 
     // Ánh sáng phủ lên lá bay theo giờ (trộn như ảnh) + cùng parallax với nền.
     const ha = scene.hours[ia]
@@ -385,9 +443,7 @@ export function ParallaxScene({
   return (
     <>
       <mesh geometry={geometry} material={plateMaterial} frustumCulled={false} renderOrder={-3} />
-      {sailMaterials.map((m, k) => (
-        <mesh key={k} geometry={sailGeometry} material={m} frustumCulled={false} renderOrder={-2} />
-      ))}
+      {scene.mill && <mesh geometry={sailGeometry} material={sailMaterial} frustumCulled={false} renderOrder={-2} />}
       <Night />
       <mesh geometry={geometry} material={treeMaterial} frustumCulled={false} renderOrder={-1} />
       <Leaves />

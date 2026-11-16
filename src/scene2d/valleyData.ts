@@ -4,12 +4,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 5.5,
     "tag": "hill-5_5",
-    "sailBox": [
-      1223,
-      638,
-      1305,
-      704
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -29,12 +23,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 7.5,
     "tag": "hill-7_5",
-    "sailBox": [
-      1223,
-      638,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -54,12 +42,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 10,
     "tag": "hill-10",
-    "sailBox": [
-      1223,
-      639,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -79,12 +61,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 12.5,
     "tag": "hill-12_5",
-    "sailBox": [
-      1223,
-      640,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -104,12 +80,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 15.5,
     "tag": "hill-15_5",
-    "sailBox": [
-      1223,
-      641,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -129,12 +99,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 19,
     "tag": "hill-19",
-    "sailBox": [
-      1223,
-      642,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -154,12 +118,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 20.3,
     "tag": "hill-20_3",
-    "sailBox": [
-      1223,
-      641,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -179,12 +137,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 21.25,
     "tag": "hill-21_25",
-    "sailBox": [
-      1223,
-      640,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,
@@ -204,12 +156,6 @@ export const VALLEY_STOPS = [
   {
     "hour": 23.5,
     "tag": "hill-23_5",
-    "sailBox": [
-      1223,
-      639,
-      1305,
-      703
-    ],
     "mill": {
       "hub": [
         1263.55,

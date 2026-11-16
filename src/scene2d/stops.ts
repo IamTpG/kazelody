@@ -11,8 +11,6 @@ export type StopTextures = {
   plate: THREE.Texture
   /** Cây gần (có alpha) */
   trees: THREE.Texture
-  /** Cánh quạt cối xay đã cắt (có alpha), nếu mốc này có */
-  sails: THREE.Texture | null
 }
 
 const loader = new THREE.TextureLoader()
@@ -46,8 +44,8 @@ export function requestStop(scene: SceneManifest, i: number): Promise<StopTextur
   let p = promises.get(k)
   if (!p) {
     const h = scene.hours[i]
-    p = Promise.all([load(h.plate), load(h.trees), h.sails ? load(h.sails) : Promise.resolve(null)]).then(([plate, trees, sails]) => {
-      const stop = { plate, trees, sails }
+    p = Promise.all([load(h.plate), load(h.trees)]).then(([plate, trees]) => {
+      const stop = { plate, trees }
       loaded.set(k, stop)
       return stop
     })
@@ -77,7 +75,6 @@ export function evictFar(scene: SceneManifest, center: number, keep = 2) {
     if (!s) continue
     s.plate.dispose()
     s.trees.dispose()
-    s.sails?.dispose()
     loaded.delete(key(scene, k))
     promises.delete(key(scene, k))
   }

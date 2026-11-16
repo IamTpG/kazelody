@@ -3,7 +3,8 @@ import { VALLEY_IMAGE, VALLEY_STOPS } from './valleyData'
 /**
  * Cảnh 2.5D: ảnh render sẵn từ painted-valley (MIT / CC0) bằng tools/capture-scene.mjs.
  * Cùng một góc máy ở nhiều giờ trong ngày → chuyển giờ chỉ là trộn hai ảnh kề nhau, dùng chung một depth.
- * Mỗi mốc gồm ba lớp: nền (đã bỏ cây gần + cánh quạt), cây gần (có alpha, đung đưa theo gió) và cánh quạt (quay).
+ * Mỗi mốc gồm hai ảnh: nền (đã bỏ cây gần + cánh quạt) và cây gần (có alpha, đung đưa theo gió).
+ * Cánh quạt cối xay không nằm trong ảnh: vẽ bằng hình học trong shader rồi quay quanh trục (xem `mill`).
  */
 export type Mill = {
   /** Trục cối xay, px trong ảnh gốc */
@@ -23,10 +24,8 @@ export type HourShot = {
   clock: number
   plate: string
   trees: string
-  sails: string | null
-  /** Khung cắt cánh quạt trong ảnh gốc (x0, y0, x1, y1 px) */
-  sailBox: readonly [number, number, number, number] | null
-  mill: Mill | null
+  /** Màu vải cánh quạt ở giờ này (sRGB hex) — lấy từ ảnh render; gân cánh là màu ngói pha theo */
+  cloth: string
   /** Ánh sáng phủ lên lá bay / cánh hoa ở giờ này (sRGB hex) — để lá hợp với ảnh nền */
   tint: string
   /** 0 = ban ngày … 1 = đêm sâu: sao, đom đóm hiện dần; lá bay mờ dần */
@@ -46,21 +45,23 @@ export type SceneManifest = {
   aspect: number
   /** Sau giờ này (và trước 6h) coi là không có mặt trời: vòng cung hiện mặt trăng */
   sunset: number
+  /** Cối xay gió: trục + mặt phẳng quay trong ảnh gốc, null nếu cảnh không có */
+  mill: Mill | null
   hours: HourShot[]
 }
 
 const base = '/scenes/valley'
 
-const LOOK: Record<string, { label: string; tint: string; night: number }> = {
-  '5.5': { label: 'Rạng sáng', tint: '#d9c3dc', night: 0.55 },
-  '7.5': { label: 'Sáng sớm', tint: '#fff0dc', night: 0 },
-  '10': { label: 'Sáng', tint: '#ffffff', night: 0 },
-  '12.5': { label: 'Trưa', tint: '#ffffff', night: 0 },
-  '15.5': { label: 'Chiều', tint: '#fff6e8', night: 0 },
-  '19': { label: 'Giờ vàng', tint: '#ffdfae', night: 0 },
-  '20.3': { label: 'Hoàng hôn', tint: '#f2b2a4', night: 0.12 },
-  '21.25': { label: 'Chạng vạng', tint: '#9a88b0', night: 0.6 },
-  '23.5': { label: 'Đêm khuya', tint: '#55628c', night: 1 },
+const LOOK: Record<string, { label: string; tint: string; night: number; cloth: string }> = {
+  '5.5': { label: 'Rạng sáng', tint: '#d9c3dc', night: 0.55, cloth: '#827b99' },
+  '7.5': { label: 'Sáng sớm', tint: '#fff0dc', night: 0, cloth: '#f3ecd7' },
+  '10': { label: 'Sáng', tint: '#ffffff', night: 0, cloth: '#f2f2eb' },
+  '12.5': { label: 'Trưa', tint: '#ffffff', night: 0, cloth: '#f2f2eb' },
+  '15.5': { label: 'Chiều', tint: '#fff6e8', night: 0, cloth: '#f1f1ea' },
+  '19': { label: 'Giờ vàng', tint: '#ffdfae', night: 0, cloth: '#f5e7c5' },
+  '20.3': { label: 'Hoàng hôn', tint: '#f2b2a4', night: 0.12, cloth: '#b3adb0' },
+  '21.25': { label: 'Chạng vạng', tint: '#9a88b0', night: 0.6, cloth: '#7e7898' },
+  '23.5': { label: 'Đêm khuya', tint: '#55628c', night: 1, cloth: '#495678' },
 }
 
 export const VALLEY: SceneManifest = {
@@ -72,6 +73,7 @@ export const VALLEY: SceneManifest = {
   height: VALLEY_IMAGE.height,
   aspect: VALLEY_IMAGE.width / VALLEY_IMAGE.height,
   sunset: 20.6,
+  mill: VALLEY_STOPS.find((s) => s.mill)?.mill ?? null,
   hours: VALLEY_STOPS.map((s) => {
     const look = LOOK[String(s.hour)]
     return {
@@ -80,9 +82,7 @@ export const VALLEY: SceneManifest = {
       clock: s.hour,
       plate: `${base}/${s.tag}-plate.webp`,
       trees: `${base}/${s.tag}-trees.webp`,
-      sails: s.sailBox ? `${base}/${s.tag}-sails.webp` : null,
-      sailBox: s.sailBox,
-      mill: s.mill,
+      cloth: look.cloth,
       tint: look.tint,
       night: look.night,
     }

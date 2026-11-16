@@ -22,18 +22,17 @@ if (!stops.length) throw new Error(`Không có JSON của view ${view} trong ${f
 const tagOf = (h) => `${view}-${String(h).replace('.', '_')}`;
 const rows = stops.map((s) => {
   const tag = tagOf(s.hour);
-  for (const suffix of ['plate.webp', 'trees.webp', 'sails.webp']) {
+  for (const suffix of ['plate.webp', 'trees.webp']) {
     try {
       copyFileSync(join(from, `${tag}-${suffix}`), join(dest, `${tag}-${suffix}`));
     } catch {
-      if (suffix !== 'sails.webp') throw new Error(`thiếu ${tag}-${suffix}`);
+      throw new Error(`thiếu ${tag}-${suffix}`);
     }
   }
   const k = scale;
   return {
     hour: s.hour,
     tag,
-    sailBox: s.sailBox ? s.sailBox.map((v) => Math.round(v * k)) : null,
     mill: s.mill && s.mill.inFront ? { hub: s.mill.hub.map((v) => +(v * k).toFixed(2)), ax: s.mill.ax.map((v) => +(v * k).toFixed(3)), ay: s.mill.ay.map((v) => +(v * k).toFixed(3)), length: s.mill.length } : null,
   };
 });
