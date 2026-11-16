@@ -41,8 +41,7 @@ function useMaxDpr() {
 }
 
 export default function App() {
-  const [hourIndex, setHourIndex] = useState(1)
-  const [pointerInside, setPointerInside] = useState(false)
+  const [hour, setHour] = useState(1)
   const [quality, setQuality] = useState(1)
   const dpr = Math.round(useMaxDpr() * (MIN_QUALITY_SCALE + (1 - MIN_QUALITY_SCALE) * quality) * 100) / 100
 
@@ -54,8 +53,6 @@ export default function App() {
         // Ảnh nền đã mịn sẵn, không cần MSAA.
         gl={{ antialias: false, powerPreference: 'high-performance' }}
         camera={{ fov: 50, near: 0.1, far: 1200, position: initialCamera }}
-        onPointerEnter={() => setPointerInside(true)}
-        onPointerLeave={() => setPointerInside(false)}
         onPointerDown={() => {
           wind.gust = 1
         }}
@@ -67,12 +64,12 @@ export default function App() {
         />
         {DEBUG && <Stats />}
         <Suspense fallback={null}>
-          <ParallaxScene scene={VALLEY} hourIndex={hourIndex} pointerInside={pointerInside} />
+          <ParallaxScene scene={VALLEY} hour={hour} />
         </Suspense>
       </Canvas>
       {/* Vignette bằng CSS: rẻ hơn hẳn một pass hậu kỳ trên GPU. */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(30,30,70,0.38)_100%)]" />
-      <Overlay options={VALLEY.hours} selected={hourIndex} onSelect={setHourIndex} />
+      <Overlay scene={VALLEY} value={hour} onChange={setHour} />
     </main>
   )
 }

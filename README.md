@@ -19,7 +19,7 @@ Thêm `?debug` vào URL (vd. `http://localhost:5173/?debug`) để hiện bảng
 |---|---|
 | `manifest.ts` | Danh sách cảnh: ảnh theo từng giờ trong ngày, depth, màu nắng cho hạt bay |
 | `depth.ts` | Đọc depth 16 bit (thang log) → bản đồ "độ parallax" 0..1 (half-float texture) |
-| `ParallaxScene.tsx` | Lưới 240×135 đỉnh dịch theo độ sâu khi rê chuột; cỏ gần lay theo gió/chuột; crossfade giữa các giờ |
+| `ParallaxScene.tsx` | Lưới 240×135 đỉnh dịch theo độ sâu khi rê chuột; cỏ gần đung đưa và khung hình chao nhẹ theo gió; trộn ảnh theo thanh trượt giờ |
 
 Mỗi pixel chỉ đọc ảnh một lần (hai lần khi đang chuyển giờ), không MSAA, không hậu kỳ → nhẹ cho GPU tích hợp.
 

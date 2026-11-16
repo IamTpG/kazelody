@@ -2,9 +2,10 @@ import { useTexture } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { use, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { Motes } from '../scene/Motes'
 import { shared, wind } from '../scene/uniforms'
 import { loadParallaxMap } from './depth'
+import { Leaves } from './Leaves'
+import { leafLook } from './leafLook'
 import type { SceneManifest } from './manifest'
 
 /*
@@ -23,10 +24,6 @@ const ZOOM = 1.08
 const PARALLAX = new THREE.Vector2(0.05, 0.026)
 /** Độ làm nét (unsharp mask) bù phần mềm do phóng ảnh và nội suy khi lưới dịch lẻ pixel. */
 const SHARPEN = 0.45
-const TRANSITION_SECONDS = 3
-/** Số điểm của vệt chuột trên cỏ, và thời gian một điểm mờ hẳn. */
-const TRAIL = 12
-const TRAIL_LIFE = 1.8
 
 const vertex = /* glsl */ `
 uniform sampler2D uWeight;
@@ -54,8 +51,6 @@ uniform float uMix;
 uniform float uTime;
 uniform float uWindTime;
 uniform float uWindStrength;
-uniform vec4 uTrail[${TRAIL}];
-uniform vec3 uSunColor;
 uniform float uImgAspect;
 uniform vec2 uTexel;
 uniform float uSharpen;
@@ -84,33 +79,15 @@ float noise(vec2 p) {
 
 void main() {
   vec2 uv = vUv;
-  // Chỉ phần cỏ gần mới phản ứng: vật xa đứng yên như tranh nền.
+  // Chỉ phần cỏ gần mới đung đưa: vật xa đứng yên như tranh nền.
   float near = smoothstep(0.5, 0.85, vW);
-  float sheen = 0.0;
   if (near > 0.0) {
-    // Gió vẽ kiểu tranh nền: các dải cỏ ngả, bắt nắng, trôi theo hướng gió (không kéo méo ảnh).
-    vec2 q = vec2(uv.x * 2.2 - uWindTime * 0.18, uv.y * 7.0);
-    float band = noise(q) * 0.65 + noise(q * 2.3 + 3.1) * 0.35;
-    float wind = smoothstep(0.55, 0.85, band) * (0.45 + 0.25 * uWindStrength);
-
-    // Vệt chuột: cỏ chỗ chuột vừa lướt qua sáng lên rồi mờ dần.
-    float trail = 0.0;
-    for (int i = 0; i < ${TRAIL}; i++) {
-      vec4 t = uTrail[i];
-      vec2 d = (vUv - t.xy) * vec2(uImgAspect, 2.0);
-      float f = max(0.0, 1.0 - dot(d, d) / 0.006);
-      trail += f * f * t.w * max(0.0, 1.0 - t.z);
-    }
-    sheen = clamp(wind * 0.6 + trail, 0.0, 1.0) * near;
-
-    // Rung lăn tăn rất nhỏ, tần số cao (lá cỏ rung) + lắc chung thật nhẹ.
-    uv.x += sin(uTime * 9.0 + vUv.x * 260.0 + vUv.y * 40.0) * 0.0006 * sheen;
-    uv.x += (band - 0.5) * 0.0012 * near * uWindStrength;
+    // Cả mảng cỏ gần ngả qua lại chậm theo gió (tần số thấp → trông như cỏ đung đưa, không như méo ảnh).
+    float sway = noise(vec2(uv.x * 2.5 - uWindTime * 0.3, uv.y * 1.2 + uWindTime * 0.05)) - 0.5;
+    uv.x += sway * 0.006 * near * uWindStrength;
   }
   vec3 a = sharp(uColorA, uv);
   vec3 col = uMix > 0.0 ? mix(a, sharp(uColorB, uv), uMix) : a;
-  // Cỏ ngả lộ mặt lá sáng hơn, nhuốm màu nắng của giờ hiện tại.
-  col = mix(col, col * 1.16 + uSunColor * 0.1, sheen);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }
@@ -143,26 +120,26 @@ const view = {
   uMix: { value: 0 },
   uSpan: { value: new THREE.Vector2(1, 1) },
   uOffset: { value: new THREE.Vector2() },
-  /** xy = vị trí (uv ảnh), z = tuổi 0..1, w = cường độ */
-  uTrail: { value: Array.from({ length: TRAIL }, () => new THREE.Vector4(-10, -10, 1, 0)) },
   uImgAspect: { value: 16 / 9 },
   uTexel: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
   uSharpen: { value: SHARPEN },
 }
-let trailHead = 0
-const lastTrail = new THREE.Vector2(-10, -10)
 
-const sunTargets = new Map<string, THREE.Color>()
+const tints = new Map<string, THREE.Color>()
+function tintColor(hex: string) {
+  let c = tints.get(hex)
+  if (!c) tints.set(hex, (c = new THREE.Color(hex)))
+  return c
+}
 const tmp = new THREE.Vector2()
 
 export function ParallaxScene({
   scene,
-  hourIndex,
-  pointerInside,
+  hour,
 }: {
   scene: SceneManifest
-  hourIndex: number
-  pointerInside: boolean
+  /** Giờ trong ngày dạng liên tục: 0 = ảnh đầu, 1 = ảnh thứ hai… (từ thanh trượt) */
+  hour: number
 }) {
   const textures = useTexture(
     scene.hours.map((h) => h.url),
@@ -170,13 +147,13 @@ export function ParallaxScene({
   )
   const weight = use(weightMap(scene))
   const size = useThree((s) => s.size)
-  const state = useRef({ current: hourIndex, next: hourIndex, progress: 1, offset: new THREE.Vector2() })
+  const state = useRef({ hour, offset: new THREE.Vector2() })
 
   const geometry = useMemo(() => new THREE.PlaneGeometry(2 * MARGIN, 2 * MARGIN, GRID_X, GRID_Y), [])
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { ...view, uTime: shared.uTime, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength, uSunColor: shared.uSunColor },
+        uniforms: { ...view, uTime: shared.uTime, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
         vertexShader: vertex,
         fragmentShader: fragment,
       }),
@@ -198,9 +175,7 @@ export function ParallaxScene({
     if (u.uWeight.value !== weight) {
       u.uWeight.value = weight
       u.uImgAspect.value = scene.aspect
-      u.uColorA.value = u.uColorB.value = textures[s.current]
-      u.uMix.value = 0
-      const img = textures[s.current].image as { width: number; height: number }
+      const img = textures[0].image as { width: number; height: number }
       u.uTexel.value.set(1 / img.width, 1 / img.height)
     }
 
@@ -216,61 +191,44 @@ export function ParallaxScene({
     shared.uTime.value += dt
     shared.uWindTime.value += dt * strength
 
-    // Parallax theo chuột + "thở" nhẹ khi đứng yên cho cảnh có sức sống.
+    // Parallax theo chuột + "thở" nhẹ + khung hình chao theo gió (mạnh hơn khi có cơn gió).
     const t = shared.uTime.value
-    tmp.set(-pointer.x + Math.sin(t * 0.13) * 0.25, -pointer.y + Math.sin(t * 0.09 + 1.3) * 0.2).multiply(PARALLAX)
+    const wt = shared.uWindTime.value
+    const sw = 0.12 + 0.12 * (strength - 1)
+    const swayX = (Math.sin(wt * 0.7) * 0.6 + Math.sin(wt * 1.13 + 1.7) * 0.4) * sw
+    const swayY = Math.sin(wt * 0.53 + 0.4) * sw * 0.5
+    // Kẹp trong ±1.25 để lưới không bao giờ dịch quá phần viền dư (MARGIN).
+    tmp
+      .set(
+        THREE.MathUtils.clamp(-pointer.x + Math.sin(t * 0.13) * 0.18 + swayX, -1.25, 1.25),
+        THREE.MathUtils.clamp(-pointer.y + Math.sin(t * 0.09 + 1.3) * 0.15 + swayY, -1.2, 1.2),
+      )
+      .multiply(PARALLAX)
     s.offset.lerp(tmp, 1 - Math.exp(-dt * 2.5))
     u.uOffset.value.copy(s.offset)
 
-    // Vệt chuột trên cỏ: thêm một điểm mỗi khi chuột đi đủ xa; các điểm già dần và trôi theo gió.
-    for (const p of u.uTrail.value) {
-      p.z = Math.min(1, p.z + dt / TRAIL_LIFE)
-      p.x += dt * 0.012 * strength
-    }
-    if (pointerInside) {
-      const span = u.uSpan.value
-      // Cỏ gần bị parallax dịch đi uOffset → trừ ra để vệt nằm đúng dưới con trỏ.
-      const mx = (pointer.x - u.uOffset.value.x) * 0.5 * span.x + 0.5
-      const my = (pointer.y - u.uOffset.value.y) * 0.5 * span.y + 0.5
-      const moved = Math.hypot((mx - lastTrail.x) * scene.aspect, my - lastTrail.y)
-      if (moved > 0.02) {
-        u.uTrail.value[trailHead].set(mx, my, 0, Math.min(1, 0.45 + moved * 4))
-        trailHead = (trailHead + 1) % TRAIL
-        lastTrail.set(mx, my)
-      }
-    }
+    // Giờ trong ngày: thanh trượt cho giá trị liên tục → trộn hai ảnh kề nhau theo phần lẻ.
+    // Làm mượt để bấm phím / nhảy nhãn vẫn chuyển dần chứ không giật.
+    s.hour += (hour - s.hour) * (1 - Math.exp(-dt * 4))
+    if (Math.abs(hour - s.hour) < 0.001) s.hour = hour
+    const last = textures.length - 1
+    const h = THREE.MathUtils.clamp(s.hour, 0, last)
+    const i = Math.max(0, Math.min(Math.floor(h), last - 1))
+    const j = Math.min(i + 1, last)
+    const f = last === 0 ? 0 : h - i
+    u.uColorA.value = textures[i]
+    u.uColorB.value = textures[j]
+    u.uMix.value = f
 
-    // Chuyển giờ: crossfade hai ảnh cùng góc máy.
-    if (hourIndex !== s.next) {
-      if (s.progress < 1) {
-        u.uColorA.value = textures[s.next]
-        s.current = s.next
-      }
-      s.next = hourIndex
-      s.progress = 0
-      u.uColorB.value = textures[hourIndex]
-    }
-    if (s.progress < 1) {
-      s.progress = Math.min(1, s.progress + dt / TRANSITION_SECONDS)
-      u.uMix.value = THREE.MathUtils.smootherstep(s.progress, 0, 1)
-      if (s.progress >= 1) {
-        u.uColorA.value = textures[s.next]
-        u.uMix.value = 0
-        s.current = s.next
-      }
-    }
-
-    // Màu hạt bay theo giờ
-    const hex = scene.hours[hourIndex].sunColor
-    let c = sunTargets.get(hex)
-    if (!c) sunTargets.set(hex, (c = new THREE.Color(hex)))
-    shared.uSunColor.value.lerp(c, 1 - Math.exp(-dt * 1.5))
+    // Ánh sáng phủ lên lá bay theo giờ (trộn như ảnh) + cùng parallax với nền.
+    leafLook.uTint.value.copy(tintColor(scene.hours[i].tint)).lerp(tintColor(scene.hours[j].tint), f)
+    leafLook.uOffset.value.copy(u.uOffset.value)
   })
 
   return (
     <>
       <mesh geometry={geometry} material={material} frustumCulled={false} renderOrder={-1} />
-      <Motes count={160} occlude={false} />
+      <Leaves />
     </>
   )
 }

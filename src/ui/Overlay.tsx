@@ -1,12 +1,15 @@
-type Option = { id: string; label: string }
+import { clockAt, valueAt, type SceneManifest } from '../scene2d/manifest'
+import { TimeArc } from './TimeArc'
 
 type Props = {
-  options: Option[]
-  selected: number
-  onSelect: (index: number) => void
+  scene: SceneManifest
+  /** Giá trị liên tục 0 … số ảnh - 1 */
+  value: number
+  onChange: (value: number) => void
 }
 
-export function Overlay({ options, selected, onSelect }: Props) {
+export function Overlay({ scene, value, onChange }: Props) {
+  const hours = scene.hours
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 text-white sm:p-6">
       <header className="flex items-center justify-between">
@@ -17,22 +20,18 @@ export function Overlay({ options, selected, onSelect }: Props) {
       </header>
 
       <footer className="flex flex-col items-center gap-3">
-        <div className="pointer-events-auto flex flex-wrap justify-center gap-1 rounded-full border border-white/30 bg-white/15 p-1 shadow-lg backdrop-blur-md">
-          {options.map((o, i) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onSelect(i)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-                i === selected ? 'bg-white/85 text-indigo-900' : 'text-white hover:bg-white/20'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+        <div className="pointer-events-auto rounded-2xl border border-white/30 bg-white/15 px-3 pt-2 pb-1 shadow-lg backdrop-blur-md">
+          <TimeArc
+            clock={clockAt(scene, value)}
+            start={hours[0].clock}
+            end={hours[hours.length - 1].clock}
+            sunset={scene.sunset}
+            onChange={(clock) => onChange(valueAt(scene, clock))}
+            valueText={hours[Math.round(value)]?.label ?? ''}
+          />
         </div>
         <p className="text-xs font-medium opacity-85 drop-shadow-[0_1px_4px_rgba(40,40,90,0.6)]">
-          Lướt chuột qua cỏ để tạo gió · Nhấp chuột để gọi một cơn gió
+          Nhấp chuột để gọi một cơn gió
         </p>
       </footer>
     </div>
