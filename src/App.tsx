@@ -7,7 +7,10 @@ import { VALLEY } from './scene2d/manifest'
 import { Overlay } from './ui/Overlay'
 
 // Thêm ?debug vào URL để hiện bảng FPS.
-const DEBUG = new URLSearchParams(window.location.search).has('debug')
+const query = new URLSearchParams(window.location.search)
+const DEBUG = query.has('debug')
+// ?t=4.5 mở thẳng ở giá trị thanh trượt 4.5 (để thử từng giờ).
+const START = Number(query.get('t') ?? 4)
 
 // Camera chỉ dùng cho lớp hạt bay; nền 2.5D vẽ thẳng theo toạ độ màn hình.
 const initialCamera: [number, number, number] = [0, 1.6, 12]
@@ -41,8 +44,8 @@ function useMaxDpr() {
 }
 
 export default function App() {
-  const [hour, setHour] = useState(1)
-  const [quality, setQuality] = useState(1)
+  const [hour, setHour] = useState(START)
+  const [quality, setQuality] = useState(START)
   const dpr = Math.round(useMaxDpr() * (MIN_QUALITY_SCALE + (1 - MIN_QUALITY_SCALE) * quality) * 100) / 100
 
   return (

@@ -102,6 +102,7 @@ void main() {
 
 const fragment = /* glsl */ `
 uniform vec3 uTint;
+uniform float uNight;
 uniform vec3 uFront;
 uniform vec3 uBack;
 uniform vec3 uPetals[3];
@@ -148,6 +149,8 @@ void main() {
     col = uSeed;
   }
   a *= vAlpha * mix(1.0, 0.85, smoothstep(0.85, 1.0, vDepth));
+  // Đêm: lá và cánh hoa mờ dần (nhường chỗ cho đom đóm).
+  a *= 1.0 - smoothstep(0.25, 0.7, uNight);
   if (a < 0.01) discard;
   gl_FragColor = vec4(col * uTint, a);
   #include <colorspace_fragment>

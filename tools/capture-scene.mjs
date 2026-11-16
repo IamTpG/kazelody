@@ -6,7 +6,10 @@
 //   Ghi đè thông số view: --views hill:fov=90:pitch=10 (ra file hill_fov90_pitch10-...)
 //
 // Mỗi view × giờ ra các file:
-//   <view>-<hour>.png / .webp      màu, đúng như khung hình của họ (đã có lớp nét cọ Kuwahara)
+//   <view>-<hour>.png              màu đầy đủ, đúng như khung hình của họ (đã có lớp nét cọ Kuwahara)
+//   <view>-<hour>-plate.webp       khung nền: đã ẩn cây gần và cánh quạt cối xay (cùng trạng thái)
+//   <view>-<hour>-trees.webp       cây gần, có alpha (mặt nạ từ chênh lệch độ sâu giữa khung đầy đủ và khung nền)
+//   <view>-<hour>-sails.webp       cánh quạt đã cắt, có alpha; JSON ghi vị trí trục + trục mặt phẳng quay
 //   <view>-<hour>-depth.png        khoảng cách tới camera, thang log: t = ln(z/near)/ln(far/near),
 //                                  16 bit chia hai kênh R (cao) và G (thấp). Trời = 1.
 //   <view>-<hour>-depth-small.png  như trên nhưng 320 px ngang (trung bình từng ô) — bản app tải về
@@ -109,15 +112,14 @@ for (const spec of views) {
         tg.view = { x, z, y: v.y ?? 1.68, yaw: baseYaw - (v.turn * Math.PI) / 180, pitch: (v.pitch * Math.PI) / 180, fov: v.fov ?? 68 };
         tg.setHour(hour);
         for (let i = 0; i < settle; i++) tg.tick(1 / 30);
-        const canvas = tg.renderer.domElement;
-        const color = canvas.toDataURL('image/png');
-        // Bản dùng trên web: WebP nhẹ hơn PNG nhiều lần.
-        const colorWebp = canvas.toDataURL('image/webp', 0.9);
-
-        // Độ sâu: đọc depth texture của khung vừa vẽ, đổi ra khoảng cách, mã hoá log 16 bit vào RG.
         const { THREE, renderer, camera, frame } = tg;
+        const canvas = renderer.domElement;
         const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-        const rt = new THREE.WebGLRenderTarget(size.x, size.y, { depthBuffer: false });
+        const W = size.x;
+        const H = size.y;
+        const N = W * H;
+
+        // --- đọc độ sâu của khung vừa vẽ: t log 16 bit (Uint16Array, hàng trên cùng trước)
         const material = new THREE.ShaderMaterial({
           glslVersion: THREE.GLSL3,
           uniforms: { tDepth: { value: frame.depthTexture }, uNear: { value: camera.near }, uFar: { value: camera.far } },
@@ -142,29 +144,78 @@ for (const spec of views) {
         quad.frustumCulled = false;
         const fsScene = new THREE.Scene();
         fsScene.add(quad);
-        renderer.setRenderTarget(rt);
-        renderer.render(fsScene, new THREE.Camera());
-        renderer.setRenderTarget(null);
-        const px = new Uint8Array(size.x * size.y * 4);
-        renderer.readRenderTargetPixels(rt, 0, 0, size.x, size.y, px);
-        rt.dispose();
-        material.dispose();
-        quad.geometry.dispose();
-
-        // Lật dọc (WebGL đọc từ dưới lên) rồi đóng gói PNG qua canvas 2D.
+        const readDepth = () => {
+          const rt = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false });
+          renderer.setRenderTarget(rt);
+          renderer.render(fsScene, new THREE.Camera());
+          renderer.setRenderTarget(null);
+          const px = new Uint8Array(N * 4);
+          renderer.readRenderTargetPixels(rt, 0, 0, W, H, px);
+          rt.dispose();
+          const t = new Uint16Array(N);
+          for (let y = 0; y < H; y++) {
+            const src = (H - 1 - y) * W * 4;
+            for (let i = 0; i < W; i++) t[y * W + i] = px[src + i * 4] * 256 + px[src + i * 4 + 1];
+          }
+          return t;
+        };
         const c2 = document.createElement('canvas');
-        c2.width = size.x;
-        c2.height = size.y;
-        const ctx = c2.getContext('2d');
-        const img = ctx.createImageData(size.x, size.y);
-        const row = size.x * 4;
-        for (let y = 0; y < size.y; y++) img.data.set(px.subarray((size.y - 1 - y) * row, (size.y - y) * row), y * row);
-        ctx.putImageData(img, 0, 0);
+        c2.width = W;
+        c2.height = H;
+        const ctx = c2.getContext('2d', { willReadFrequently: true });
+        const readColor = () => {
+          ctx.clearRect(0, 0, W, H);
+          ctx.drawImage(canvas, 0, 0);
+          return ctx.getImageData(0, 0, W, H);
+        };
+        const toUrl = (img, type, q) => {
+          ctx.putImageData(img, 0, 0);
+          return c2.toDataURL(type, q);
+        };
 
-        // Bản nhỏ cho web (SW×SH): trung bình t theo từng ô, vẫn 16 bit RG. App chỉ cần chừng này
-        // vì độ sâu dùng để dịch các đỉnh của một lưới thưa, không phải từng pixel.
+        // 1) khung đầy đủ
+        const color = canvas.toDataURL('image/png');
+        const fullImg = readColor();
+        const tFull = readDepth();
+
+        // Cối xay gió: vị trí trục + hai trục mặt phẳng quay chiếu lên màn hình (px trên một đơn vị cục bộ)
+        let mill = null;
+        let sails = null;
+        tg.farWoods.group.traverse((o) => {
+          if (o.name === 'mill-sails') sails = o;
+        });
+        if (sails) {
+          sails.updateWorldMatrix(true, false);
+          camera.updateMatrixWorld();
+          const hub = new THREE.Vector3().setFromMatrixPosition(sails.matrixWorld);
+          const proj = (p) => {
+            const q = p.clone().project(camera);
+            return [((q.x + 1) / 2) * W, ((1 - q.y) / 2) * H, q.z];
+          };
+          const h = proj(hub);
+          const inFront = hub.clone().applyMatrix4(camera.matrixWorldInverse).z < 0;
+          const ex = new THREE.Vector3(1, 0, 0).transformDirection(sails.matrixWorld).multiplyScalar(sails.scale.x);
+          const ey = new THREE.Vector3(0, 1, 0).transformDirection(sails.matrixWorld).multiplyScalar(sails.scale.x);
+          const px = proj(hub.clone().add(ex));
+          const py = proj(hub.clone().add(ey));
+          const dist = hub.distanceTo(camera.position);
+          const tHub = Math.log(dist / camera.near) / Math.log(camera.far / camera.near);
+          mill = { inFront, hub: [h[0], h[1]], ax: [px[0] - h[0], px[1] - h[1]], ay: [py[0] - h[0], py[1] - h[1]], length: 9, tHub, dist };
+        }
+
+        // 2) khung nền: ẩn cây gần và cánh quạt, đúng cùng trạng thái (tick(0) không đổi gì)
+        const wasTrees = tg.trees.group.visible;
+        tg.trees.group.visible = false;
+        if (sails) sails.visible = false;
+        tg.tick(0);
+        const plate = canvas.toDataURL('image/webp', 0.9);
+        const tPlate = readDepth();
+        tg.trees.group.visible = wasTrees;
+        if (sails) sails.visible = true;
+
+        // Bản nhỏ cho web: trung bình t theo ô 320 px, 16 bit RG (từ khung đầy đủ).
         const SW = 320;
-        const SH = Math.round((SW * size.y) / size.x);
+        const SH = Math.round((SW * H) / W);
         const small = document.createElement('canvas');
         small.width = SW;
         small.height = SH;
@@ -172,19 +223,13 @@ for (const spec of views) {
         const simg = sctx.createImageData(SW, SH);
         for (let j = 0; j < SH; j++) {
           for (let i = 0; i < SW; i++) {
-            const x0 = Math.floor((i * size.x) / SW);
-            const x1 = Math.floor(((i + 1) * size.x) / SW);
-            const y0 = Math.floor((j * size.y) / SH);
-            const y1 = Math.floor(((j + 1) * size.y) / SH);
+            const x0 = Math.floor((i * W) / SW);
+            const x1 = Math.floor(((i + 1) * W) / SW);
+            const y0 = Math.floor((j * H) / SH);
+            const y1 = Math.floor(((j + 1) * H) / SH);
             let sum = 0;
             let n = 0;
-            for (let y = y0; y < y1; y++) {
-              for (let x = x0; x < x1; x++) {
-                const k = (y * size.x + x) * 4;
-                sum += img.data[k] * 256 + img.data[k + 1];
-                n++;
-              }
-            }
+            for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) (sum += tFull[yy * W + xx]), n++;
             const val = Math.round(sum / Math.max(1, n));
             const k = (j * SW + i) * 4;
             simg.data[k] = val >> 8;
@@ -193,10 +238,103 @@ for (const spec of views) {
           }
         }
         sctx.putImageData(simg, 0, 0);
+
+        // 3) mặt nạ = chỗ độ sâu khác nhau giữa khung đầy đủ và khung nền
+        const THRESH = 24;
+        const diff = new Uint8Array(N);
+        for (let i = 0; i < N; i++) diff[i] = Math.abs(tFull[i] - tPlate[i]) > THRESH ? 1 : 0;
+        const treeM = new Uint8Array(N);
+        const sailM = new Uint8Array(N);
+        const R = mill && mill.inFront ? Math.hypot(...mill.ax) * mill.length * 1.15 : 0;
+        const hubT = mill ? (mill.tHub * 65535) | 0 : 0;
+        for (let y = 0; y < H; y++) {
+          for (let xx = 0; xx < W; xx++) {
+            const i = y * W + xx;
+            if (!diff[i]) continue;
+            const inDisc = R > 0 && Math.hypot(xx - mill.hub[0], y - mill.hub[1]) < R && Math.abs(tFull[i] - hubT) < 900;
+            (inDisc ? sailM : treeM)[i] = 1;
+          }
+        }
+        // nở 2 px rồi làm mềm viền → alpha 0..255
+        const soften = (m) => {
+          let a = Float32Array.from(m);
+          for (let pass = 0; pass < 2; pass++) {
+            const b = new Float32Array(N);
+            for (let y = 0; y < H; y++) {
+              for (let xx = 0; xx < W; xx++) {
+                let mx = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                  const yy = y + dy;
+                  if (yy < 0 || yy >= H) continue;
+                  for (let dx = -1; dx <= 1; dx++) {
+                    const x2 = xx + dx;
+                    if (x2 >= 0 && x2 < W && a[yy * W + x2] > mx) mx = a[yy * W + x2];
+                  }
+                }
+                b[y * W + xx] = mx;
+              }
+            }
+            a = b;
+          }
+          // box blur 3x3
+          const b = new Float32Array(N);
+          for (let y = 1; y < H - 1; y++) for (let xx = 1; xx < W - 1; xx++) {
+            let s = 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += a[(y + dy) * W + xx + dx];
+            b[y * W + xx] = s / 9;
+          }
+          return b;
+        };
+        const treeA = soften(treeM);
+        const sailA = sails ? soften(sailM) : null;
+
+        const layer = (alpha, box) => {
+          const [bx0, by0, bx1, by1] = box;
+          const w = bx1 - bx0;
+          const h = by1 - by0;
+          const out = new ImageData(w, h);
+          for (let y = 0; y < h; y++) {
+            for (let xx = 0; xx < w; xx++) {
+              const s = (y + by0) * W + xx + bx0;
+              const o = (y * w + xx) * 4;
+              out.data[o] = fullImg.data[s * 4];
+              out.data[o + 1] = fullImg.data[s * 4 + 1];
+              out.data[o + 2] = fullImg.data[s * 4 + 2];
+              out.data[o + 3] = Math.round(Math.min(1, alpha[s]) * 255);
+            }
+          }
+          const cc = document.createElement('canvas');
+          cc.width = w;
+          cc.height = h;
+          cc.getContext('2d').putImageData(out, 0, 0);
+          return cc.toDataURL('image/webp', 0.9);
+        };
+        const trees = layer(treeA, [0, 0, W, H]);
+        let sailsOut = null;
+        let sailBox = null;
+        if (sails) {
+          let x0 = W, y0 = H, x1 = 0, y1 = 0;
+          for (let y = 0; y < H; y++) for (let xx = 0; xx < W; xx++) if (sailM[y * W + xx]) {
+            if (xx < x0) x0 = xx;
+            if (xx > x1) x1 = xx;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+          if (x1 > x0) {
+            sailBox = [Math.max(0, x0 - 6), Math.max(0, y0 - 6), Math.min(W, x1 + 7), Math.min(H, y1 + 7)];
+            sailsOut = layer(sailA, sailBox);
+          }
+        }
+        material.dispose();
+        quad.geometry.dispose();
         return {
           color,
-          colorWebp,
-          depth: c2.toDataURL('image/png'),
+          plate,
+          trees,
+          sails: sailsOut,
+          sailBox,
+          mill,
+          coverage: { trees: treeM.reduce((a, b) => a + b, 0) / N, sails: sailM.reduce((a, b) => a + b, 0) / N },
           depthSmall: small.toDataURL('image/png'),
           near: camera.near,
           far: camera.far,
@@ -206,11 +344,13 @@ for (const spec of views) {
       { v, hour, settle },
     );
     const tag = `${label}-${String(hour).replace('.', '_')}`;
-    writeFileSync(join(out, `${tag}.png`), Buffer.from(shot.color.split(',')[1], 'base64'));
-    writeFileSync(join(out, `${tag}.webp`), Buffer.from(shot.colorWebp.split(',')[1], 'base64'));
-    writeFileSync(join(out, `${tag}-depth.png`), Buffer.from(shot.depth.split(',')[1], 'base64'));
-    writeFileSync(join(out, `${tag}-depth-small.png`), Buffer.from(shot.depthSmall.split(',')[1], 'base64'));
-    writeFileSync(join(out, `${tag}.json`), JSON.stringify({ view: name, hour, ...v, near: shot.near, far: shot.far, fov: shot.fov, width, height }, null, 2));
+    const save = (name, url) => url && writeFileSync(join(out, name), Buffer.from(url.split(',')[1], 'base64'));
+    save(`${tag}.png`, shot.color);
+    save(`${tag}-plate.webp`, shot.plate);
+    save(`${tag}-trees.webp`, shot.trees);
+    save(`${tag}-sails.webp`, shot.sails);
+    save(`${tag}-depth-small.png`, shot.depthSmall);
+    writeFileSync(join(out, `${tag}.json`), JSON.stringify({ view: name, hour, ...v, near: shot.near, far: shot.far, fov: shot.fov, width, height, mill: shot.mill, sailBox: shot.sailBox, coverage: shot.coverage }, null, 2));
     console.log(`đã chụp ${tag} (${((Date.now() - t1) / 1000).toFixed(0)}s)`);
   }
 }
