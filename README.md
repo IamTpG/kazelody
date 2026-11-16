@@ -1,47 +1,99 @@
 # KazeLody
 
 Web nghe nhạc mang không gian chữa lành, cảm hứng từ nền tranh vẽ tay của phim hoạt hình.
+Miễn phí, phi lợi nhuận, không quảng cáo.
+
+Stack: Vite + React + TypeScript + Tailwind, React Three Fiber (three.js), Howler, Cloudflare R2 (nhạc), Vercel.
 
 ## Chạy
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
+npm run build      # tsc -b && vite build → dist/
+npm run lint       # oxlint
 ```
 
-Thêm `?debug` vào URL (vd. `http://localhost:5173/?debug`) để hiện bảng FPS.
+Tham số URL (chỉ để thử):
 
-## Nền 2.5D (`src/scene2d`) — đang dùng
+- `?debug` — hiện bảng FPS.
+- `?t=4.5` — mở thẳng ở một giá trị thanh trượt giờ (0 = rạng sáng … 8 = đêm khuya; số lẻ là giữa hai mốc).
 
-Ảnh màu + bản đồ độ sâu được **render sẵn một lần** trên máy dev, người dùng chỉ tải ảnh tĩnh:
+## Nền 2.5D (`src/scene2d`)
 
-| File | Nội dung |
+Cảnh được **render sẵn một lần** trên máy dev; người dùng chỉ tải ảnh tĩnh rồi GPU ghép lại thành cảnh có chiều sâu.
+Không có hình học 3D lúc chạy, không MSAA, không hậu kỳ → nhẹ cho GPU tích hợp (đo trên Intel UHD GT1: GPU bận
+khoảng 16% ở cảnh đêm nặng nhất, khi đang thao tác).
+
+### Chu kỳ ngày đêm
+
+Chín mốc giờ, thanh trượt (`src/ui/TimeArc.tsx`, vòng cung không chữ, mặt trời khuyết dần thành trăng) trộn liên tục
+giữa hai mốc kề nhau. Ảnh tải theo nhu cầu: chỉ giữ mốc đang xem và vài mốc kề bên trong bộ nhớ GPU (`stops.ts`).
+
+| Mốc | Giờ | Mốc | Giờ | Mốc | Giờ |
+|---|---|---|---|---|---|
+| Rạng sáng | 5:30 | Trưa | 12:30 | Hoàng hôn | 20:20 |
+| Sáng sớm | 7:30 | Chiều | 15:30 | Chạng vạng | 21:15 |
+| Sáng | 10:00 | Giờ vàng | 19:00 | Đêm khuya | 23:30 |
+
+### Các lớp
+
+Mỗi mốc gồm hai ảnh (`public/scenes/valley/hill-<giờ>-plate.webp`, `-trees.webp`) dùng chung một bản đồ độ sâu
+(`hill-depth-small.png`). Tất cả đi qua cùng một lưới 240×135 đỉnh dịch theo độ sâu khi rê chuột.
+
+| Lớp / file | Việc |
 |---|---|
-| `manifest.ts` | Danh sách cảnh: ảnh theo từng giờ trong ngày, depth, màu nắng cho hạt bay |
-| `depth.ts` | Đọc depth 16 bit (thang log) → bản đồ "độ parallax" 0..1 (half-float texture) |
-| `ParallaxScene.tsx` | Lưới 240×135 đỉnh dịch theo độ sâu khi rê chuột; cỏ gần đung đưa và khung hình chao nhẹ theo gió; trộn ảnh theo thanh trượt giờ |
+| nền (`plate`) | Cảnh đã bỏ cây gần và cánh quạt. Cỏ gần đung đưa theo gió, lay theo chuột; ban đêm đom đóm rọi sáng cỏ theo độ sâu |
+| cánh quạt | Vẽ bằng hình học trong shader (4 cánh + gân), quay quanh trục cối xay; tốc độ `MILL_RPM` trong `ParallaxScene.tsx` |
+| cây gần (`trees`) | Ảnh có alpha, lay theo gió; lộ phần nền phía sau khi lay |
+| `Leaves.tsx` | Lá (4 kiểu), cánh hoa, hạt bồ công anh bay theo gió; nhấp chuột gọi một cơn gió cuốn lá từ cây bên trái |
+| `Night.tsx` | Sao, đèn cửa sổ của làng (`windows.ts`), đom đóm |
+| `manifest.ts` | Các mốc: giờ, ánh sáng phủ lên lá, độ tối, màu vải cánh quạt |
+| `valleyData.ts` | **Sinh tự động** (`tools/build-scene-data.mjs`): vị trí và mặt phẳng quay của cối xay |
+| `depth.ts` | Đọc depth 16 bit (thang log) → bản đồ "độ parallax" 0..1, làm mờ để mép cây không bị kéo giãn |
 
-Mỗi pixel chỉ đọc ảnh một lần (hai lần khi đang chuyển giờ), không MSAA, không hậu kỳ → nhẹ cho GPU tích hợp.
+Chuyển động hạt (lá, sao, đom đóm) tính trong vertex shader từ thời gian nên không tốn CPU.
+Sức gió là một giá trị đã làm mượt (`gustLevel`) để nhấp chuột không làm hình giật.
 
-### Xuất cảnh mới
+## Xuất cảnh mới
 
-Nguồn cảnh: [painted-valley](https://git.patch.gg/blendi/painted-valley) (code MIT, hình CC0), clone ở `../painted-valley`
-với một thay đổi nhỏ trong `src/lib/frame.js` (expose `depthTexture`), rồi `npm ci --ignore-scripts && npm run build` ở đó.
+Nguồn cảnh: [painted-valley](https://git.patch.gg/blendi/painted-valley) (code MIT, hình CC0), clone ở `../painted-valley`,
+cần `git lfs pull`. Bản dùng ở đây có sửa nhỏ, lưu trong `tools/painted-valley.patch`:
+
+- `src/lib/frame.js`: expose `depthTexture` để đọc độ sâu.
+- `src/valley/sky.js`: thêm bình minh, chạng vạng và ánh trăng (độ cao mặt trời âm), quỹ đạo buổi sáng và sau hoàng hôn.
+- `src/valley/main.js`: nới giới hạn giờ (4:30–24:00).
+- `src/valley/farwoods.js`: đặt tên `mill-sails` cho cánh quạt để tách riêng.
 
 ```bash
-node tools/capture-scene.mjs --src ../painted-valley --out captures/valley/hill-high \
-  --views hill --hours 12.5,15.5,19,20.3 --size 1920x1080 --quality high
+cd ../painted-valley && git apply ../kazelody/tools/painted-valley.patch
+npm ci --ignore-scripts && npm run build
+
+cd ../kazelody
+node tools/capture-scene.mjs --src ../painted-valley --out captures/valley/day-high --views hill \
+  --hours 5.5,7.5,10,12.5,15.5,19,20.3,21.25,23.5 --size 1920x1080 --quality high
+node tools/build-scene-data.mjs --from captures/valley/day-high --view hill
+python3 tools/find-windows.py captures/valley/day-high/hill-12_5-plate.webp   # → src/scene2d/windows.ts
 ```
 
-- Render bằng CPU (SwiftShader) để không làm treo GPU yếu: tải trang ~12–20 phút, mỗi ảnh vài phút.
-- Góc máy định nghĩa trong `VIEWS` của `tools/capture-scene.mjs` (`hill`, `wide`, `valley`, `village`, `peaks`).
-- Ảnh gốc nằm trong `captures/` (không commit). Chép `*.webp` và `*-depth-small.png` vào `public/scenes/<cảnh>/`
-  rồi khai báo trong `src/scene2d/manifest.ts`.
+- Render bằng CPU (SwiftShader), **không bao giờ mở painted-valley trên GPU/trình duyệt thật**: trang đó từng làm
+  treo trình duyệt. Tải trang khoảng 15–30 phút, mỗi mốc vài phút (xem tiến độ in ra màn hình).
+- Mỗi mốc render hai khung trong cùng một trạng thái: đầy đủ và đã ẩn cây gần + cánh quạt. Chênh lệch độ sâu giữa hai khung
+  cho ra mặt nạ cây.
+- Góc máy định nghĩa trong `VIEWS` của `tools/capture-scene.mjs` (`hill`, `wide`, `valley`, `village`, `peaks`); ghi đè
+  bằng `--views hill:fov=90:pitch=10`. Ảnh gốc nằm trong `captures/` (không commit).
+- `build-scene-data.mjs` chép ảnh vào `public/scenes/valley/` và sinh `valleyData.ts`. Sau đó cập nhật giờ, màu và độ tối
+  của từng mốc trong `manifest.ts` (và `windows.ts` nếu đổi góc máy).
 
 ## Cảnh 3D cũ (`src/scene`)
 
-Bản dựng toàn bộ bằng shader (đồi, 60k lá cỏ, cây bông xù, sky dome). Không còn được dùng làm nền vì làm GPU tích hợp
-bận 80–100%; `Motes.tsx` và `uniforms.ts` vẫn được nền 2.5D dùng lại.
+Bản dựng toàn bộ bằng shader (đồi, 60k lá cỏ, cây bông xù, sky dome), từng làm GPU tích hợp bận 80–100% nên đã bỏ
+(có ở commit `1237bea`). Chỉ `config.ts` (`mulberry32`) và `uniforms.ts` (`shared`, `wind`) còn được nền 2.5D dùng lại.
+
+## Triển khai
+
+Vercel, nối với nhánh `main`: preset Vite (`npm run build`, output `dist`), không cần cấu hình thêm.
+Tổng ảnh cả ngày khoảng 4 MB, trang chỉ tải mốc đang xem trước. Nhạc để ở Cloudflare R2 (miễn phí băng thông ra).
 
 ## Tài nguyên & ghi công
 
