@@ -19,12 +19,18 @@ type Props = {
   valueText: string
 }
 
-const W = 200
-const H = 92
-const CX = 100
-const CY = 80
-const RX = 86
-const RY = 64
+const W = 140
+const H = 82
+const CX = 70
+const CY = 70
+const RX = 60
+const RY = 60
+
+const smooth = (x: number) => {
+  const t = Math.min(1, Math.max(0, x))
+  return t * t * (3 - 2 * t)
+}
+const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t)
 
 export function TimeArc({ clock, start, end, sunset, onChange, valueText }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -36,7 +42,12 @@ export function TimeArc({ clock, start, end, sunset, onChange, valueText }: Prop
   const angle = Math.PI * (1 - (clock - start) / span)
   const sx = CX + RX * Math.cos(angle)
   const sy = CY - RY * Math.sin(angle)
-  const night = clock > sunset
+  // Mặt trời khuyết dần thành trăng lưỡi liềm ở cuối cung (quanh giờ `sunset`): một vòng tròn "cắn" trượt vào đĩa.
+  const moon = smooth((clock - (sunset - 0.7)) / 1.5)
+  // Lúc sắp lặn mặt trời ngả màu cam ấm.
+  // khoảng cách từ tâm đĩa đến tâm hình cắn: 17 = chưa chạm tới, 5 = lưỡi liềm hoàn chỉnh
+  const bite = 17 - 12 * moon
+  const warm = smooth((clock - (sunset - 1.6)) / 1.4) * (1 - moon)
 
   const clockFromPointer = (e: React.PointerEvent) => {
     const svg = svgRef.current
@@ -53,7 +64,7 @@ export function TimeArc({ clock, start, end, sunset, onChange, valueText }: Prop
     <svg
       ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
-      className="w-[min(13rem,64vw)] cursor-pointer touch-none select-none outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-white/70"
+      className="w-[min(10rem,56vw)] cursor-pointer overflow-visible drop-shadow-[0_1px_5px_rgba(30,40,90,0.45)] touch-none select-none outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-white/70"
       role="slider"
       tabIndex={0}
       aria-label="Thời điểm trong ngày"
@@ -87,16 +98,16 @@ export function TimeArc({ clock, start, end, sunset, onChange, valueText }: Prop
     >
       <defs>
         <radialGradient id={`${id}-glow`}>
-          <stop offset="0" stopColor="white" stopOpacity={night ? 0.45 : 0.8} />
+          <stop offset="0" stopColor="white" stopOpacity={0.8 - 0.35 * moon} />
           <stop offset="1" stopColor="white" stopOpacity="0" />
         </radialGradient>
         <clipPath id={`${id}-above`}>
-          <rect x="0" y="0" width={W} height={CY} />
+          <rect x="-60" y="-60" width={W + 120} height={CY + 60} />
         </clipPath>
-        {/* Mặt trăng khuyết: hình tròn trừ đi một hình tròn lệch. */}
+        {/* Đĩa trừ đi một hình tròn lệch; hình tròn này trượt từ ngoài vào nên đĩa khuyết dần. */}
         <mask id={`${id}-crescent`}>
-          <circle cx={sx} cy={sy} r="8" fill="white" />
-          <circle cx={sx + 4} cy={sy - 3} r="7" fill="black" />
+          <circle cx={sx} cy={sy} r="9" fill="white" />
+          <circle cx={sx + 0.8 * bite} cy={sy - 0.6 * bite} r="7" fill="black" />
         </mask>
       </defs>
 
@@ -111,11 +122,16 @@ export function TimeArc({ clock, start, end, sunset, onChange, valueText }: Prop
 
       <g clipPath={`url(#${id}-above)`}>
         <circle cx={sx} cy={sy} r="20" fill={`url(#${id}-glow)`} />
-        {night ? (
-          <circle cx={sx} cy={sy} r="8" fill="#f4f1e2" mask={`url(#${id}-crescent)`} />
-        ) : (
-          <circle cx={sx} cy={sy} r="8.5" fill="#fff6d8" stroke="white" strokeWidth="1.5" />
-        )}
+        <circle
+          cx={sx}
+          cy={sy}
+          r={8.5 - 0.5 * moon}
+          fill={`rgb(${lerp(255, 244, moon)}, ${lerp(lerp(246, 205, warm), 241, moon)}, ${lerp(lerp(216, 150, warm), 226, moon)})`}
+          stroke="white"
+          strokeWidth="1.5"
+          strokeOpacity={1 - moon}
+          mask={`url(#${id}-crescent)`}
+        />
       </g>
     </svg>
   )

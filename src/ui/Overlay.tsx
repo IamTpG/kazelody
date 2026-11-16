@@ -20,7 +20,7 @@ export function Overlay({ scene, value, onChange }: Props) {
       </header>
 
       <footer className="flex flex-col items-center gap-3">
-        <div className="pointer-events-auto rounded-2xl border border-white/30 bg-white/15 px-3 pt-2 pb-1 shadow-lg backdrop-blur-md">
+        <div className="pointer-events-auto">
           <TimeArc
             clock={clockAt(scene, value)}
             start={hours[0].clock}
