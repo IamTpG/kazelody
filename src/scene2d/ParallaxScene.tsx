@@ -6,7 +6,7 @@ import { loadParallaxMap } from './depth'
 import { Leaves } from './Leaves'
 import { leafLook } from './leafLook'
 import type { SceneManifest } from './manifest'
-import { nightLook } from './leafLook'
+import { fireflies, FLIES, FLIES_GROUND, nightLook } from './leafLook'
 import { Night } from './Night'
 import { evictFar, getStop, nearestLoaded, requestStop } from './stops'
 
@@ -76,6 +76,9 @@ uniform float uSharpen;
 uniform vec4 uTrail[10];
 uniform float uNow;
 uniform float uAspect;
+uniform vec4 uFly[${FLIES}];
+uniform float uFlyH[${FLIES}];
+uniform float uFlyOn;
 varying vec2 vUv;
 varying float vW;
 
@@ -109,6 +112,25 @@ void main() {
   }
   vec3 a = sharp(uPlateA, uv);
   vec3 col = uMix > 0.0 ? mix(a, sharp(uPlateB, uv), uMix) : a;
+  // Đom đóm rọi sáng đồng cỏ: chỉ những chỗ cùng độ sâu với con đom đóm mới sáng (đồi, làng ở xa thì không),
+  // và ánh sáng nhân với màu của ảnh nên ngọn cỏ sáng lên đúng màu của nó.
+  if (uFlyOn > 0.01 && vW > 0.3) {
+    float lit = 0.0;
+    for (int i = 0; i < ${FLIES}; i++) {
+      vec4 f = uFly[i];
+      if (f.w < 0.01) continue;
+      bool high = i >= ${FLIES_GROUND};
+      // vầng sáng lớn hơn khi con đom đóm sáng hơn
+      float r = (0.014 + 0.04 * (f.z - 0.4)) * (0.55 + 0.6 * sqrt(f.w)) * (high ? 1.7 : 1.0);
+      // đom đóm sát đất rọi tới chỗ cỏ thấp hơn nó một chút, dẹt theo mặt đất; con bay cao thì rọi tròn quanh mình
+      // (không có mặt đất ở đó, chỉ nhuộm nhẹ vùng gần nó, độ sâu khớp lỏng hơn)
+      vec2 d = (vUv - vec2(f.x, f.y - uFlyH[i] * 0.85)) * vec2(uAspect, high ? 1.0 : 1.7);
+      float dz = (vW - f.z) / (high ? 0.45 : 0.14);
+      // càng bay cao so với mặt cỏ thì ánh sáng rọi xuống càng yếu
+      lit += f.w * (high ? 0.5 : max(0.35, 1.0 - 4.0 * uFlyH[i])) * exp(-dot(d, d) / (r * r) - dz * dz);
+    }
+    col += (col * 4.5 + 0.045) * lit * vec3(0.85, 1.0, 0.42);
+  }
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }
@@ -292,7 +314,7 @@ export function ParallaxScene({
   const plateMaterial = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { ...view, ...trail, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
+        uniforms: { ...view, ...trail, ...fireflies, uWindTime: shared.uWindTime, uWindStrength: shared.uWindStrength },
         vertexShader: vertex,
         fragmentShader: plateFragment,
       }),
