@@ -1,11 +1,12 @@
-import { SKIES } from '../scene/config'
+type Option = { id: string; label: string }
 
 type Props = {
-  skyIndex: number
-  onSkyChange: (index: number) => void
+  options: Option[]
+  selected: number
+  onSelect: (index: number) => void
 }
 
-export function Overlay({ skyIndex, onSkyChange }: Props) {
+export function Overlay({ options, selected, onSelect }: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 text-white sm:p-6">
       <header className="flex items-center justify-between">
@@ -16,17 +17,17 @@ export function Overlay({ skyIndex, onSkyChange }: Props) {
       </header>
 
       <footer className="flex flex-col items-center gap-3">
-        <div className="pointer-events-auto flex gap-1 rounded-full border border-white/30 bg-white/15 p-1 shadow-lg backdrop-blur-md">
-          {SKIES.map((sky, i) => (
+        <div className="pointer-events-auto flex flex-wrap justify-center gap-1 rounded-full border border-white/30 bg-white/15 p-1 shadow-lg backdrop-blur-md">
+          {options.map((o, i) => (
             <button
-              key={sky.id}
+              key={o.id}
               type="button"
-              onClick={() => onSkyChange(i)}
+              onClick={() => onSelect(i)}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-                i === skyIndex ? 'bg-white/85 text-indigo-900' : 'text-white hover:bg-white/20'
+                i === selected ? 'bg-white/85 text-indigo-900' : 'text-white hover:bg-white/20'
               }`}
             >
-              {sky.label}
+              {o.label}
             </button>
           ))}
         </div>

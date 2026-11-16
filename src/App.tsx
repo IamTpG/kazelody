@@ -1,24 +1,28 @@
-import { PerformanceMonitor } from '@react-three/drei'
+import { PerformanceMonitor, Stats } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useEffect, useState } from 'react'
-import { Experience } from './scene/Experience'
-import { CAMERA, heightAt } from './scene/config'
 import { wind } from './scene/uniforms'
+import { ParallaxScene } from './scene2d/ParallaxScene'
+import { VALLEY } from './scene2d/manifest'
 import { Overlay } from './ui/Overlay'
 
-const [cx, , cz] = CAMERA.position
-const initialCamera: [number, number, number] = [cx, heightAt(cx, cz) + CAMERA.eyeHeight, cz]
+// Thêm ?debug vào URL để hiện bảng FPS.
+const DEBUG = new URLSearchParams(window.location.search).has('debug')
+
+// Camera chỉ dùng cho lớp hạt bay; nền 2.5D vẽ thẳng theo toạ độ màn hình.
+const initialCamera: [number, number, number] = [0, 1.6, 12]
 
 /*
  * Độ phân giải canvas:
  * - Không vượt devicePixelRatio HIỆN TẠI (zoom out 50% → dpr giảm một nửa; nếu giữ dpr cũ,
  *   canvas phình gấp 4 lần số pixel thật của màn hình).
  * - Ngân sách tối đa ~1080p pixel thật, kể cả màn hình 2K/4K.
- * - PerformanceMonitor hạ tiếp xuống tối thiểu 60% khi FPS thấp.
+ * - PerformanceMonitor hạ tiếp xuống tối thiểu 90% khi FPS thấp.
  */
 const DPR_CAP = 1.5
 const PIXEL_BUDGET = 1920 * 1080
-const MIN_QUALITY_SCALE = 0.6
+// Nền 2.5D rất nhẹ: chỉ hạ tối đa 10% khi FPS thấp, hạ nhiều hơn sẽ làm ảnh mờ thấy rõ.
+const MIN_QUALITY_SCALE = 0.9
 
 function maxDpr() {
   const cssPixels = Math.max(1, window.innerWidth * window.innerHeight)
@@ -37,7 +41,7 @@ function useMaxDpr() {
 }
 
 export default function App() {
-  const [skyIndex, setSkyIndex] = useState(0)
+  const [hourIndex, setHourIndex] = useState(1)
   const [pointerInside, setPointerInside] = useState(false)
   const [quality, setQuality] = useState(1)
   const dpr = Math.round(useMaxDpr() * (MIN_QUALITY_SCALE + (1 - MIN_QUALITY_SCALE) * quality) * 100) / 100
@@ -47,7 +51,8 @@ export default function App() {
       <Canvas
         flat
         dpr={dpr}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        // Ảnh nền đã mịn sẵn, không cần MSAA.
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
         camera={{ fov: 50, near: 0.1, far: 1200, position: initialCamera }}
         onPointerEnter={() => setPointerInside(true)}
         onPointerLeave={() => setPointerInside(false)}
@@ -60,13 +65,14 @@ export default function App() {
           flipflops={3}
           onFallback={() => setQuality(0)}
         />
+        {DEBUG && <Stats />}
         <Suspense fallback={null}>
-          <Experience skyIndex={skyIndex} pointerInside={pointerInside} />
+          <ParallaxScene scene={VALLEY} hourIndex={hourIndex} pointerInside={pointerInside} />
         </Suspense>
       </Canvas>
       {/* Vignette bằng CSS: rẻ hơn hẳn một pass hậu kỳ trên GPU. */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(30,30,70,0.38)_100%)]" />
-      <Overlay skyIndex={skyIndex} onSkyChange={setSkyIndex} />
+      <Overlay options={VALLEY.hours} selected={hourIndex} onSelect={setHourIndex} />
     </main>
   )
 }

@@ -1,6 +1,6 @@
 # KazeLody
 
-Web nghe nhạc mang không gian chữa lành, cảm hứng từ nền tranh Studio Ghibli.
+Web nghe nhạc mang không gian chữa lành, cảm hứng từ nền tranh vẽ tay của phim hoạt hình.
 
 ## Chạy
 
@@ -9,31 +9,43 @@ npm install
 npm run dev
 ```
 
-## Cảnh 3D (`src/scene`)
+Thêm `?debug` vào URL (vd. `http://localhost:5173/?debug`) để hiện bảng FPS.
 
-Toàn bộ cảnh dựng bằng shader, không cần model hay Blender:
+## Nền 2.5D (`src/scene2d`) — đang dùng
+
+Ảnh màu + bản đồ độ sâu được **render sẵn một lần** trên máy dev, người dùng chỉ tải ảnh tĩnh:
 
 | File | Nội dung |
 |---|---|
-| `config.ts` | Preset bầu trời + bảng màu, vị trí cây, camera, hàm độ cao địa hình |
-| `uniforms.ts` | Uniform dùng chung cho mọi shader (gió, chuột, màu, bầu trời) |
-| `glsl.ts` | Noise, lấy mẫu bầu trời equirect, sương theo màu chân trời, ánh sáng toon |
-| `SkyDome.tsx` | Bầu trời + crossfade giữa 2 ảnh |
-| `Terrain.tsx` / `Grass.tsx` | Đồi + 60k lá cỏ instanced (25k trên thiết bị cảm ứng), gió, chuột đẩy cỏ |
-| `FluffyTree.tsx` | Cây bông xù: thẻ lá billboard + toon 4 dải màu |
-| `FarHills.tsx` | Núi xa chìm trong sương |
-| `Motes.tsx` | Hạt phấn trôi theo gió |
-| `Experience.tsx` | Ghép cảnh, chuyển trời, parallax camera |
+| `manifest.ts` | Danh sách cảnh: ảnh theo từng giờ trong ngày, depth, màu nắng cho hạt bay |
+| `depth.ts` | Đọc depth 16 bit (thang log) → bản đồ "độ parallax" 0..1 (half-float texture) |
+| `ParallaxScene.tsx` | Lưới 240×135 đỉnh dịch theo độ sâu khi rê chuột; cỏ gần lay theo gió/chuột; crossfade giữa các giờ |
 
-## Hiệu năng
+Mỗi pixel chỉ đọc ảnh một lần (hai lần khi đang chuyển giờ), không MSAA, không hậu kỳ → nhẹ cho GPU tích hợp.
 
-- Thêm `?debug` vào URL (vd. `http://localhost:5173/?debug`) để hiện bảng FPS.
-- Màu đồng cỏ tính sẵn trên CPU (`meadowWeights`); ánh sáng, bóng cây, sương tính ở vertex shader → fragment shader của cỏ/đất chỉ còn vài phép nhân (cỏ chồng nhiều lớp nên đây là chỗ tốn nhất).
-- Không dùng post-processing; vignette làm bằng CSS. Độ phân giải tự giảm khi FPS thấp (`PerformanceMonitor` trong `App.tsx`).
+### Xuất cảnh mới
 
-Thêm bầu trời mới: đặt ảnh equirect vào `public/skies/` và thêm một preset vào `SKIES` trong `config.ts`.
+Nguồn cảnh: [painted-valley](https://git.patch.gg/blendi/painted-valley) (code MIT, hình CC0), clone ở `../painted-valley`
+với một thay đổi nhỏ trong `src/lib/frame.js` (expose `depthTexture`), rồi `npm ci --ignore-scripts && npm run build` ở đó.
 
-## Tài nguyên
+```bash
+node tools/capture-scene.mjs --src ../painted-valley --out captures/valley/hill-high \
+  --views hill --hours 12.5,15.5,19,20.3 --size 1920x1080 --quality high
+```
 
-- Skybox: [FreeStylized](https://freestylized.com) (sky_47, sky_127) — miễn phí, không bắt buộc ghi công.
-- Kỹ thuật tán cây tham khảo [craftzdog/ghibli-style-shader](https://github.com/craftzdog/ghibli-style-shader) (MIT) và bài "Creating fluffy trees with Three.js" (douges.dev).
+- Render bằng CPU (SwiftShader) để không làm treo GPU yếu: tải trang ~12–20 phút, mỗi ảnh vài phút.
+- Góc máy định nghĩa trong `VIEWS` của `tools/capture-scene.mjs` (`hill`, `wide`, `valley`, `village`, `peaks`).
+- Ảnh gốc nằm trong `captures/` (không commit). Chép `*.webp` và `*-depth-small.png` vào `public/scenes/<cảnh>/`
+  rồi khai báo trong `src/scene2d/manifest.ts`.
+
+## Cảnh 3D cũ (`src/scene`)
+
+Bản dựng toàn bộ bằng shader (đồi, 60k lá cỏ, cây bông xù, sky dome). Không còn được dùng làm nền vì làm GPU tích hợp
+bận 80–100%; `Motes.tsx` và `uniforms.ts` vẫn được nền 2.5D dùng lại.
+
+## Tài nguyên & ghi công
+
+- Cảnh thung lũng: [painted-valley](https://git.patch.gg/blendi/painted-valley) của blendi / Patch — code MIT,
+  hình CC0 1.0 (chi tiết nguồn trong `LICENCE-NOTES.md` của repo đó).
+- Skybox (cảnh 3D cũ): [FreeStylized](https://freestylized.com) (sky_47, sky_127).
+- Kỹ thuật tán cây (cảnh 3D cũ) tham khảo [craftzdog/ghibli-style-shader](https://github.com/craftzdog/ghibli-style-shader) (MIT).
