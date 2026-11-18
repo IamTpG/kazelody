@@ -133,11 +133,36 @@ Metadata đọc từ tên file như `npm run tracks`; file lên R2 với khoá `
 
 ### Chạy và kiểm tra
 
-- `npm run dev` không chạy `api/`: player rơi về `public/audio/` như cũ.
-- Thử API ở máy: `vercel dev` (cần Vercel CLI và env). Thử trên mạng: push nhánh để có **Preview deployment** rồi mở
+- `npm run dev` không chạy `api/`: player rơi về `public/audio/` như cũ, và `/admin` báo "Máy chủ không có API quản trị".
+- **Thử cả trang quản trị mà không cần Cloudflare**: `npm run dev:admin` (xem phần "Trang quản trị").
+- Thử API thật ở máy: `vercel dev` (cần Vercel CLI và env). Thử trên mạng: push nhánh để có **Preview deployment** rồi mở
   `/api/tracks` (chưa có nhạc → `{"tracks":[],…}`; thiếu env → 503).
 - Test: `npm test` (API chạy với kho lưu trữ trong bộ nhớ). Việc R2 thật có nhận URL ký hay không chỉ kiểm tra được bằng một lần
   upload thật.
+
+## Trang quản trị (`/admin`)
+
+Trang này tải theo yêu cầu (`React.lazy` trong `src/Root.tsx`), nên trang nghe nhạc không phải tải thêm mã của nó. `vercel.json` viết lại
+`/admin` về `index.html` và gửi `X-Robots-Tag: noindex`. Mã nằm ở `src/admin/`.
+
+- **Đăng nhập** bằng `ADMIN_PASSWORD`; phiên hết hạn giữa chừng thì tự về màn đăng nhập.
+- **Thêm nhạc**: kéo thả hoặc chọn nhiều file. Metadata điền sẵn từ tên file (`Artist__Title__License[__nguon]`); sai quy tắc thì
+  điền tay. Đuôi lạ, quá 30 MB hoặc trùng tên file với bài đã có thì bị chặn ngay, không gọi mạng. File upload thẳng từ trình duyệt lên R2
+  (XHR, có tiến độ). Nếu file đã lên R2 mà bước ghi thư viện lỗi, thử lại **chỉ ghi lại**, không upload lại.
+- **Thư viện**: sửa metadata, ↑ ↓ đổi thứ tự phát, xoá (xác nhận 2 bước, xoá cả file trên R2). Thay đổi tới người nghe sau tối đa 5 phút.
+- Logic không dính giao diện nằm ở `api.ts` (gọi API) và `upload.ts` (kiểm tra, điền sẵn, điều phối 3 bước), đều có test.
+
+### Thử cục bộ không cần Cloudflare
+
+```bash
+npm run dev:admin              # mở http://localhost:5173/admin (mật khẩu in ra màn hình, mặc định kazelody-dev)
+npm run dev:admin -- --seed    # nạp sẵn nhạc trong public/audio/ vào thư viện
+```
+
+Lệnh này chạy **đúng các handler của `api/`** với kho lưu trữ trong bộ nhớ, kèm một "R2 giả" (`/__r2/…`, hỗ trợ `Range` nên nghe được bài
+vừa tải lên; PUT sai `Content-Type` so với URL ký thì bị từ chối như R2 thật) và Vite có proxy về đó. Trang nghe nhạc (`/`) cũng thấy
+các bài đó. Dữ liệu mất khi tắt. Đây chỉ là công cụ phát triển: **không thay thế** việc thử R2 thật (CORS của bucket, chữ ký thật), việc
+này làm trên Preview deployment. Biến tuỳ chọn: `DEV_ADMIN_PASSWORD`, `PORT`, `DEV_API_PORT`, `R2_PRESIGN_TTL_SECONDS`.
 
 ## Nền 2.5D (`src/scene2d`)
 

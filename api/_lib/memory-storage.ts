@@ -1,17 +1,32 @@
 import type { ObjectInfo, Storage } from './storage.ts'
 
-type Stored = { contentType: string; size: number; json?: string }
+type Stored = { contentType: string; size: number; json?: string; body?: Uint8Array }
 
-/** Bản Storage trong bộ nhớ, chỉ dùng cho test. URL ký là URL giả nhưng mang đủ thông tin để kiểm tra. */
+type Options = {
+  /** Gốc của URL ký trả về. Mặc định là một địa chỉ giả (test); môi trường thử cục bộ trỏ về "R2 giả" của nó. */
+  baseUrl?: string
+}
+
+/** Bản Storage trong bộ nhớ, dùng cho test và môi trường thử cục bộ (tools/dev-admin.mjs). */
 export class MemoryStorage implements Storage {
   readonly objects = new Map<string, Stored>()
   readonly deleted: string[] = []
   /** Đặt để mô phỏng R2 báo lỗi khi xoá. */
   failDelete = false
+  private readonly baseUrl: string
 
-  /** Giả lập một file đã được trình duyệt upload lên R2. */
+  constructor(options: Options = {}) {
+    this.baseUrl = (options.baseUrl ?? 'https://r2.test').replace(/\/+$/, '')
+  }
+
+  /** Giả lập một file đã được trình duyệt upload lên R2 (không có nội dung). */
   seed(key: string, info: ObjectInfo): void {
     this.objects.set(key, { ...info })
+  }
+
+  /** Lấy object kèm nội dung (nếu có) để phục vụ lại cho "R2 giả". */
+  getObject(key: string): Stored | undefined {
+    return this.objects.get(key)
   }
 
   async getJson(key: string): Promise<unknown> {
@@ -25,7 +40,7 @@ export class MemoryStorage implements Storage {
   }
 
   async put(key: string, body: Uint8Array, contentType: string): Promise<void> {
-    this.objects.set(key, { contentType, size: body.byteLength })
+    this.objects.set(key, { contentType, size: body.byteLength, body })
   }
 
   async head(key: string): Promise<ObjectInfo | null> {
@@ -40,10 +55,10 @@ export class MemoryStorage implements Storage {
   }
 
   async presignGet(key: string, expiresInSeconds: number): Promise<string> {
-    return `https://r2.test/${key}?op=get&expires=${expiresInSeconds}`
+    return `${this.baseUrl}/${key}?op=get&expires=${expiresInSeconds}`
   }
 
   async presignPut(key: string, contentType: string, expiresInSeconds: number): Promise<string> {
-    return `https://r2.test/${key}?op=put&type=${encodeURIComponent(contentType)}&expires=${expiresInSeconds}`
+    return `${this.baseUrl}/${key}?op=put&type=${encodeURIComponent(contentType)}&expires=${expiresInSeconds}`
   }
 }
