@@ -97,6 +97,14 @@ export function clockAt(scene: SceneManifest, v: number) {
   return h.length === 1 ? h[0].clock : h[i].clock + (h[i + 1].clock - h[i].clock) * f
 }
 
+/** Hệ số đêm (0 = ban ngày … 1 = đêm sâu) tại giá trị thanh trượt, nội suy giữa hai ảnh kề nhau (cùng công thức với lá bay trong ParallaxScene). */
+export function nightAt(scene: SceneManifest, v: number) {
+  const h = scene.hours
+  const i = Math.max(0, Math.min(Math.floor(v), h.length - 2))
+  const f = Math.min(1, Math.max(0, v - i))
+  return h.length === 1 ? h[0].night : h[i].night + (h[i + 1].night - h[i].night) * f
+}
+
 /** Ngược lại: giờ đồng hồ → giá trị liên tục. */
 export function valueAt(scene: SceneManifest, clock: number) {
   const h = scene.hours

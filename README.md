@@ -19,6 +19,7 @@ npm run tracks     # đọc public/audio/ → public/audio/tracks.json
 Tham số URL (chỉ để thử):
 
 - `?debug` — hiện bảng FPS và gắn `window.__kz.player` để điều khiển thử bằng tay (`play()`, `next()`, `setShuffle(true)`…).
+- `?hint` — ép hiện lại gợi ý "Kéo mặt trời để đổi thời gian" (bình thường chỉ hiện đến lần tương tác đầu tiên, nhớ trong `localStorage` khoá `kz-arc-seen`).
 - `?t=4.5` — mở thẳng ở một giá trị thanh trượt giờ (0 = rạng sáng … 8 = đêm khuya; số lẻ là giữa hai mốc).
 
 ## Nhạc (`src/audio`, `shared/track.ts`)
@@ -32,6 +33,18 @@ Chỉ nhận nhạc **CC0** và **CC-BY**. Giao diện hiển thị: CC0 chỉ t
   (R2, API ngoài…). `mediaSession.ts` — phím media và màn hình khoá.
 - Thời gian phát đọc thẳng từ `player.currentTime` (bằng `requestAnimationFrame`), không nằm trong state để khỏi render 60 lần/giây.
 
+### Giao diện trình phát (`src/ui`)
+
+Icon trần không box; độ nổi nhờ bóng hai lớp và một lớp tối rất loãng dưới chân màn hình (nhạt mặc định, đậm khi rê chuột
+vào player, đậm hơn khi mở playlist). Toàn bộ hiệu ứng nằm trong `player.css` (tiền tố `kz-`).
+
+- `Player.tsx` ghép `ProgressBar` (đường tiến độ), `VolumeControl`, `Playlist`, `Motes` (cánh hoa ban ngày) và các nút prev / play /
+  next / shuffle. Không có bài nào thì player ẩn hẳn. Phím Space bật/tắt phát; Escape hoặc bấm ra ngoài thì đóng playlist.
+- `ProgressBar.tsx` đọc `player.currentTime` mỗi khung hình và ghi thẳng `transform` (không setState), nên đường chạy trượt đều.
+  Kéo hoặc bấm để tua; phím ←/→ tua 5 giây.
+- `TimeArc.tsx` (góc phải trên) có gợi ý cho người mới: mặt trời tự trượt nhẹ cho tới lần tương tác đầu tiên.
+- Cả cụm khẽ đung đưa như trong gió; `prefers-reduced-motion` tắt hết hiệu ứng.
+
 ### Thêm nhạc khi dev
 
 Đặt file vào `public/audio/` (không commit, bản chạy thật nằm ở R2) với tên:
@@ -42,7 +55,8 @@ Artist__Title__License[__nguon].ext     vd. Aria North__Quiet Hills at Dusk__CC-
 
 - Phân cách là **hai dấu gạch dưới**, nên tên bài có gạch nối, `[ ]`, dấu nháy, tiếng Việt/Nhật đều dùng bình thường.
 - License: `CC0`, `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-2.0` (CC-BY bắt buộc có phiên bản). Nguồn là tên miền, có thể bỏ.
-- Tên file không được chứa `/ \ : * ? " < > |`: dùng ký tự giống hệt (`／ ： ？`).
+- Tên file không được chứa `/ \ : * ? " < > |`: dùng ký tự giống hệt (`／ ： ？`). Khi dev, `#` cũng không dùng được
+  (dev server không phục vụ được đường dẫn chứa `#`): thay bằng `＃`. Dấu phẩy, `&`, `;`, `'` thì dùng bình thường.
 - Chạy `npm run tracks` để sinh `public/audio/tracks.json`; file sai quy tắc sẽ được báo kèm lý do.
 
 ## Nền 2.5D (`src/scene2d`)
