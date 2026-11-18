@@ -7,7 +7,9 @@
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeDuration } from '../shared/time.ts';
 import { AUDIO_EXTENSIONS, parseTrackFilename, trackId } from '../shared/track.ts';
+import { readFileDuration } from './read-duration.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'public', 'audio');
@@ -38,12 +40,14 @@ for (const filename of files) {
   }
   seen.set(id, filename);
   const { title, artist, license, sourceDomain } = parsed.value;
-  tracks.push({ id, filename, title, artist, license, ...(sourceDomain ? { sourceDomain } : {}) });
+  const seconds = normalizeDuration(await readFileDuration(join(dir, filename)));
+  tracks.push({ id, filename, title, artist, license, ...(sourceDomain ? { sourceDomain } : {}), ...(seconds ? { duration: seconds } : {}) });
 }
 
 await writeFile(join(dir, 'tracks.json'), JSON.stringify({ version: 1, tracks }, null, 2) + '\n');
 
-for (const track of tracks) console.log(`✓ ${track.artist} — ${track.title}  [${track.license}${track.sourceDomain ? ', ' + track.sourceDomain : ''}]`);
+const clock = (s) => (s ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : 'chưa đo được');
+for (const track of tracks) console.log(`✓ ${track.artist} — ${track.title}  [${track.license}${track.sourceDomain ? ', ' + track.sourceDomain : ''}, ${clock(track.duration)}]`);
 if (files.length === 0) console.log(`Chưa có file nhạc nào trong ${dir}`);
 if (errors.length > 0) {
   console.error(`\n${errors.length} file không hợp lệ (tên cần dạng Artist__Title__License[__nguon].ext):\n${errors.join('\n')}`);

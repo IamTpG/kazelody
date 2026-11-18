@@ -1,4 +1,5 @@
 import { MAX_UPLOAD_BYTES, extensionOf, validateMeta, type StoredTrack, type TrackMeta } from '../../shared/library.ts'
+import { isDuration } from '../../shared/time.ts'
 import { clean, parseTrackFilename } from '../../shared/track.ts'
 import type { AdminApi, UploadTicket } from './api.ts'
 
@@ -68,6 +69,8 @@ export type UploadOptions<F extends UploadFile> = {
   onProgress?: (fraction: number) => void
   /** Phiếu của lần thử trước (file đã lên R2): bỏ qua xin URL và upload */
   ticket?: UploadTicket | null
+  /** Thời lượng (giây) đã đo ở trình duyệt; không đo được thì bỏ trống, bài vẫn được tải lên */
+  duration?: number | null
 }
 
 /** Ba bước: xin URL ký → PUT thẳng lên R2 → ghi vào thư viện. */
@@ -102,7 +105,13 @@ export async function uploadTrack<F extends UploadFile>(options: UploadOptions<F
 
   onStage?.('saving')
   try {
-    return await api.register({ id: ticket.id, key: ticket.key, originalFilename: clean(file.name), ...meta })
+    return await api.register({
+      id: ticket.id,
+      key: ticket.key,
+      originalFilename: clean(file.name),
+      ...meta,
+      ...(isDuration(options.duration) ? { duration: options.duration } : {}),
+    })
   } catch (error) {
     throw new UploadError('saving', error, ticket)
   }

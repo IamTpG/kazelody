@@ -8,7 +8,7 @@ import {
 /** Dữ liệu metadata người dùng nhập (chưa kiểm tra): server và `validateMeta` sẽ kiểm tra. */
 export type MetaInput = { title: string; artist: string; license: string; sourceDomain?: string }
 
-export type RegisterInput = MetaInput & { id: string; key: string; originalFilename: string }
+export type RegisterInput = MetaInput & { id: string; key: string; originalFilename: string; duration?: number }
 
 /** Phiếu upload: URL PUT ký sẵn và header bắt buộc phải gửi kèm. */
 export type UploadTicket = {

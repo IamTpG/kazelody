@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { validateMeta, type Library, type StoredTrack } from '../../shared/library.ts'
+import { formatDuration } from '../../shared/time.ts'
 import { LICENSES, type LicenseId } from '../../shared/track.ts'
 import { adminApi } from './api'
 import { card, dangerButton, formatBytes, ghostButton, inputClass, primaryButton, selectClass } from './ui'
@@ -93,7 +94,8 @@ export function LibraryList({ library, onChanged, onError }: Props) {
                       {!attribution && <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-xs">CC0: người nghe chỉ thấy tên bài</span>}
                     </p>
                     <p className="mt-0.5 text-xs text-white/70">
-                      {LICENSES[track.license].name} · {track.sourceDomain ?? 'không ghi nguồn'} · {formatBytes(track.size)}
+                      {LICENSES[track.license].name} · {track.sourceDomain ?? 'không ghi nguồn'} · {formatBytes(track.size)} ·{' '}
+                      {track.duration ? formatDuration(track.duration) : 'chưa có thời lượng'}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1.5">

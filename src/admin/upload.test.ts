@@ -162,3 +162,20 @@ test('uploadTrack: có thể sửa metadata giữa hai lần thử (vd. lỗi do
   assert.deepEqual(retry.log, ['register'])
   assert.equal((retry.registered[0] as { title: string }).title, 'Tên đã sửa')
 })
+
+test('uploadTrack: thời lượng đo được thì gửi kèm khi ghi thư viện; không đo được hoặc giá trị lạ thì bỏ qua', async () => {
+  for (const [duration, expected] of [[224.6, 224.6], [null, undefined], [undefined, undefined], [0, undefined], [-5, undefined], [Number.NaN, undefined]] as const) {
+    const h = harness()
+    await uploadTrack({ file: FILE, draft: GOOD, api: h.api, put: h.put, duration })
+    const sent = h.registered[0] as { duration?: number }
+    assert.equal(sent.duration, expected, String(duration))
+    assert.equal('duration' in sent, expected !== undefined, String(duration))
+  }
+})
+
+test('uploadTrack: thử lại sau khi ghi lỗi vẫn gửi thời lượng', async () => {
+  const retry = harness()
+  await uploadTrack({ file: FILE, draft: GOOD, api: retry.api, put: retry.put, ticket: TICKET, duration: 90 })
+  assert.deepEqual(retry.log, ['register'])
+  assert.equal((retry.registered[0] as { duration?: number }).duration, 90)
+})

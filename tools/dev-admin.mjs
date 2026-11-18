@@ -24,6 +24,7 @@ import { MemoryStorage } from '../api/_lib/memory-storage.ts';
 import { pushTracks } from '../api/_lib/push.ts';
 import { parseTrackKey } from '../shared/library.ts';
 import { AUDIO_EXTENSIONS } from '../shared/track.ts';
+import { readFileDuration } from './read-duration.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VITE_PORT = Number(process.env.PORT ?? 5173);
@@ -160,6 +161,7 @@ if (process.argv.includes('--seed')) {
     names.map(async (name) => ({
       name,
       size: (await stat(join(dir, name))).size,
+      duration: await readFileDuration(join(dir, name)),
       read: async () => new Uint8Array(await readFile(join(dir, name))),
     })),
   );

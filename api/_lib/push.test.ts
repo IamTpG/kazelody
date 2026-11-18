@@ -124,3 +124,17 @@ test('tracks.json hỏng thì dừng, không ghi đè', async () => {
   await assert.rejects(pushTracks({ storage, files: [file(A)], now: NOW }), /tracks\.json/)
   assert.equal(storage.objects.size, 1)
 })
+
+test('thời lượng do công cụ đo được lưu vào thư viện (giữ giá trị thực); giá trị lạ bị bỏ qua', async () => {
+  const storage = new MemoryStorage()
+  const withDuration = (name: string, duration: number | null | undefined): LocalFile => ({ ...file(name), duration })
+  const C = 'Lumen__Third Song__CC0.mp3'
+  const D = 'Dua__Fourth Song__CC0.mp3'
+  await pushTracks({
+    storage,
+    files: [withDuration(A, 159.72049), withDuration(B, null), withDuration(C, -4), withDuration(D, undefined)],
+    now: NOW,
+    randomId: idGenerator(),
+  })
+  assert.deepEqual((await library(storage)).tracks.map((t) => t.duration), [159.72, undefined, undefined, undefined])
+})

@@ -13,6 +13,7 @@ import { ConfigError, loadR2Config } from '../api/_lib/env.ts';
 import { pushTracks } from '../api/_lib/push.ts';
 import { createR2Storage } from '../api/_lib/r2.ts';
 import { AUDIO_EXTENSIONS } from '../shared/track.ts';
+import { readFileDuration } from './read-duration.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -39,6 +40,7 @@ const files = await Promise.all(
   names.map(async (name) => ({
     name,
     size: (await stat(join(dir, name))).size,
+    duration: await readFileDuration(join(dir, name)),
     read: async () => new Uint8Array(await readFile(join(dir, name))),
   })),
 );

@@ -6,12 +6,15 @@ import {
   newTrackKey,
   type StoredTrack,
 } from '../../shared/library.ts'
+import { normalizeDuration } from '../../shared/time.ts'
 import { clean, parseTrackFilename } from '../../shared/track.ts'
 import { readLibrary, writeLibrary, type Storage } from './storage.ts'
 
 export type LocalFile = {
   name: string
   size: number
+  /** Thời lượng (giây) nếu công cụ đo được; thiếu hoặc không hợp lệ thì bài không có thời lượng */
+  duration?: number | null
   read: () => Promise<Uint8Array>
 }
 
@@ -87,6 +90,7 @@ export async function pushTracks(options: Options): Promise<PushReport> {
       const info = await storage.head(key)
       if (!info || info.size !== body.byteLength) throw new Error('Upload xong nhưng kích thước trên R2 không khớp')
 
+      const duration = normalizeDuration(file.duration)
       const track: StoredTrack = {
         id,
         key,
@@ -97,6 +101,7 @@ export async function pushTracks(options: Options): Promise<PushReport> {
         originalFilename: filename,
         contentType,
         size: body.byteLength,
+        ...(duration === null ? {} : { duration }),
         addedAt: now().toISOString(),
       }
       const next = addTrack(library, track, now())

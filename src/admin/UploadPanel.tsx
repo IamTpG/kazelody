@@ -1,7 +1,9 @@
 import { useRef, useState, type DragEvent, type KeyboardEvent } from 'react'
 import type { StoredTrack } from '../../shared/library.ts'
+import { formatDuration } from '../../shared/time.ts'
 import { LICENSES, clean, type LicenseId } from '../../shared/track.ts'
 import { adminApi, type UploadTicket } from './api'
+import { readDuration } from './duration'
 import { putFile } from './putFile'
 import { UploadError, draftFromFilename, draftProblem, fileProblem, uploadTrack, type Draft, type Stage } from './upload'
 import { card, ghostButton, inputClass, primaryButton, formatBytes, selectClass } from './ui'
@@ -23,6 +25,8 @@ type Row = {
   error: string | null
   /** Có khi file đã lên R2 mà bước ghi thư viện lỗi: thử lại chỉ ghi lại */
   ticket: UploadTicket | null
+  /** Thời lượng (giây) đo ở trình duyệt: `undefined` = đang đo, `null` = không đo được */
+  duration: number | null | undefined
 }
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -54,6 +58,8 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const counter = useRef(0)
+  /** Việc đo thời lượng đang chạy của từng dòng (bước tải lên chờ nó nếu chưa xong) */
+  const durationJobs = useRef(new Map<string, Promise<number | null>>())
 
   const patchRow = (id: string, patch: Partial<Row>) =>
     setRows((previous) => previous.map((row) => (row.id === id ? { ...row, ...patch } : row)))
@@ -66,9 +72,15 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
       const name = clean(file.name)
       const duplicate = names.has(name)
       names.add(name)
-      return { id: `row-${counter.current++}`, file, draft, hint, problem: fileProblem(file), duplicate, status: 'idle', progress: 0, error: null, ticket: null }
+      return { id: `row-${counter.current++}`, file, draft, hint, problem: fileProblem(file), duplicate, status: 'idle', progress: 0, error: null, ticket: null, duration: undefined }
     })
     setRows((previous) => [...previous, ...added])
+    for (const row of added) {
+      if (row.problem || row.duplicate) continue // không tải lên nên khỏi đo
+      const job = readDuration(row.file)
+      durationJobs.current.set(row.id, job)
+      void job.then((duration) => patchRow(row.id, { duration }))
+    }
   }
 
   const onDrop = (event: DragEvent) => {
@@ -94,12 +106,14 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
     for (const row of rows.filter(isUploadable)) {
       patchRow(row.id, { status: 'checking', progress: 0, error: null })
       try {
+        const duration = row.duration !== undefined ? row.duration : await durationJobs.current.get(row.id)
         await uploadTrack({
           file: row.file,
           draft: row.draft,
           api: adminApi,
           put: putFile,
           ticket: row.ticket,
+          duration,
           onStage: (status) => patchRow(row.id, { status }),
           onProgress: (progress) => patchRow(row.id, { progress }),
         })
@@ -229,7 +243,10 @@ function RowItem({ row, locked, onChange, onRemove }: RowItemProps) {
           <p className="truncate text-sm font-semibold" title={row.file.name}>
             {row.file.name}
           </p>
-          <p className="text-xs text-white/75">{formatBytes(row.file.size)}</p>
+          <p className="text-xs text-white/75">
+            {formatBytes(row.file.size)}
+            {row.duration ? ` · ${formatDuration(row.duration)}` : ''}
+          </p>
         </div>
         <button type="button" className={ghostButton} onClick={onRemove} disabled={locked || active} aria-label={`Bỏ ${row.file.name} khỏi hàng đợi`}>
           ✕
