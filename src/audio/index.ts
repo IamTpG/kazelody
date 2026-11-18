@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { attachMediaSession } from './mediaSession.ts'
 import { Player, type PlayerState } from './player.ts'
 import type { MusicSource } from './source.ts'
+import { apiSource } from './sources/api.ts'
 import { manifestSource } from './sources/manifest.ts'
 
 export { Player, type PlayerState, type PlayerStatus } from './player.ts'
@@ -24,9 +25,10 @@ let started: Promise<void> | null = null
 
 /**
  * Nạp danh sách bài từ các nguồn (không tự phát: trình duyệt cần thao tác của người dùng).
- * Gọi nhiều lần vẫn chỉ chạy một lần.
+ * Mặc định: nhạc trên R2 qua /api/tracks (bản chạy thật) + thư mục public/audio (npm run dev, nơi không có api/).
+ * Ở mỗi nơi chỉ một nguồn có bài, nên không trùng lặp. Gọi nhiều lần vẫn chỉ chạy một lần.
  */
-export function initAudio(list: MusicSource[] = [manifestSource]): Promise<void> {
+export function initAudio(list: MusicSource[] = [apiSource, manifestSource]): Promise<void> {
   started ??= (async () => {
     attachMediaSession(player)
     for (const source of list) sources.set(source.id, source)
