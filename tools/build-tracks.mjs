@@ -21,6 +21,11 @@ const tracks = [];
 const errors = [];
 const seen = new Map();
 for (const filename of files) {
+  // `#` và `?` không biểu diễn được trong đường dẫn URL của file tĩnh (bản chạy thật dùng khoá UUID nên không vướng).
+  if (/[#?]/.test(filename)) {
+    errors.push(`✗ ${filename}\n    tên chứa "#" hoặc "?": dev server không phục vụ được, hãy thay bằng "＃" hoặc "？" (ký tự toàn chiều rộng)`);
+    continue;
+  }
   const parsed = parseTrackFilename(filename);
   if (!parsed.ok) {
     errors.push(`✗ ${filename}\n    ${parsed.error}`);

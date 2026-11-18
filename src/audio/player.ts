@@ -326,7 +326,8 @@ export class Player {
 
   /** Bài hỏng thì bỏ qua sang bài kế; hỏng hết cả danh sách thì dừng hẳn. */
   private onTrackError(error?: unknown): void {
-    console.warn('[audio] không phát được', this.state.current?.originalFilename, error)
+    const detail = error instanceof MediaError ? `MediaError ${error.code}: ${error.message}` : error
+    console.warn('[audio] không phát được', this.state.current?.originalFilename, detail)
     this.failures++
     if (this.failures >= this.tracks.length) {
       this.wantPlay = false
