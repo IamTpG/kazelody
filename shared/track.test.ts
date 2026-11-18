@@ -127,3 +127,11 @@ test('isManifestEntry', () => {
   assert.ok(!isManifestEntry({ ...entry, title: 1 }))
   assert.ok(!isManifestEntry(null))
 })
+
+test('isManifestEntry: duration tuỳ chọn nhưng phải hợp lệ', () => {
+  const entry = { id: 'x', filename: 'a.mp3', title: 'B', artist: 'A', license: 'CC0' }
+  assert.ok(isManifestEntry({ ...entry, duration: 225 }))
+  for (const bad of [0, -1, 100_000, 'dài', null, Number.NaN]) {
+    assert.ok(!isManifestEntry({ ...entry, duration: bad }), String(bad))
+  }
+})

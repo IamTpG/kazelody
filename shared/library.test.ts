@@ -163,3 +163,22 @@ test('toPublicTrack: không lộ khoá R2, dung lượng hay thời điểm thê
   assert.equal(pub.url, 'https://signed.example/u')
   assert.ok(!('key' in pub))
 })
+
+test('duration: bài cũ không có vẫn hợp lệ; có thì phải là số dương hữu hạn ≤ 24 giờ', () => {
+  assert.ok(validateStoredTrack(stored(1)))
+  assert.equal(validateStoredTrack({ ...stored(1), duration: 225 })?.duration, 225)
+  assert.ok(!('duration' in (validateStoredTrack(stored(1)) ?? {})))
+  for (const bad of [0, -1, 86_401, Number.NaN, Number.POSITIVE_INFINITY, '225', null]) {
+    assert.equal(validateStoredTrack({ ...stored(1), duration: bad }), null, String(bad))
+  }
+  // một dòng sai thì cả thư viện bị từ chối (không âm thầm bỏ bài)
+  assert.equal(validateLibrary(lib(stored(1), { ...stored(2), duration: -5 })), null)
+})
+
+test('duration: updateTrack giữ nguyên, toPublicTrack đưa ra khi có và bỏ khi thiếu', () => {
+  const base = lib(stored(1, { duration: 225 }), stored(2))
+  const next = updateTrack(base, id(1), { title: 'Mới', artist: 'A', license: 'CC0' }, NOW)
+  assert.equal(next?.tracks[0].duration, 225)
+  assert.equal(toPublicTrack(stored(1, { duration: 225 }), 'https://x').duration, 225)
+  assert.ok(!('duration' in toPublicTrack(stored(2), 'https://x')))
+})

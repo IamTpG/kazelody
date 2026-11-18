@@ -47,6 +47,7 @@ export const manifestSource: MusicSource = {
         source: 'manifest',
         sourceDomain: entry.sourceDomain,
         license: entry.license,
+        ...(entry.duration === undefined ? {} : { duration: entry.duration }),
         originalFilename: entry.filename,
       })
     }

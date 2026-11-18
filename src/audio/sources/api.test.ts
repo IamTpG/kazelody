@@ -136,3 +136,14 @@ test('resolve: bài không có trong danh sách mới thì dùng url sẵn có c
   const gone = { ...track(9), source: 'r2', license: 'CC0' as const }
   assert.equal(await source.resolve!(gone), gone.url)
 })
+
+test('list: giữ thời lượng hợp lệ; thời lượng lạ thì bỏ riêng nó, không loại cả bài', async () => {
+  const fetchFn = async () =>
+    new Response(
+      JSON.stringify({ tracks: [{ ...track(1), duration: 225 }, { ...track(2), duration: -3 }, { ...track(3), duration: 'dài' }, track(4)], expiresAt: 1 }),
+      { status: 200 },
+    )
+  const tracks = await createApiSource({ fetchFn }).list()
+  assert.deepEqual(tracks.map((t) => [t.id, t.duration]), [['id1', 225], ['id2', undefined], ['id3', undefined], ['id4', undefined]])
+  assert.ok(!('duration' in tracks[1]))
+})

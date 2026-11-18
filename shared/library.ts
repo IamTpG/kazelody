@@ -12,6 +12,7 @@ import {
   type LicenseId,
   type Track,
 } from './track.ts'
+import { isDuration } from './time.ts'
 
 export const MAX_UPLOAD_BYTES = 30 * 1024 * 1024
 export const MAX_TEXT_LENGTH = 200
@@ -41,6 +42,8 @@ export type StoredTrack = {
   originalFilename: string
   contentType: string
   size: number
+  /** Thời lượng (giây), đo ở trình duyệt/công cụ lúc upload. Bài cũ có thể chưa có */
+  duration?: number
   /** ISO 8601 */
   addedAt: string
 }
@@ -126,6 +129,7 @@ export function validateStoredTrack(value: unknown): StoredTrack | null {
   if (typeof value.originalFilename !== 'string' || typeof value.contentType !== 'string') return null
   if (typeof value.size !== 'number' || !Number.isFinite(value.size) || value.size < 0) return null
   if (typeof value.addedAt !== 'string' || Number.isNaN(Date.parse(value.addedAt))) return null
+  if (value.duration !== undefined && !isDuration(value.duration)) return null
   if (!Object.hasOwn(LICENSES, meta.value.license)) return null
   return {
     id: value.id,
@@ -134,6 +138,7 @@ export function validateStoredTrack(value: unknown): StoredTrack | null {
     originalFilename: value.originalFilename,
     contentType: value.contentType,
     size: value.size,
+    ...(value.duration !== undefined ? { duration: value.duration } : {}),
     addedAt: value.addedAt,
   }
 }
@@ -197,6 +202,7 @@ export function toPublicTrack(track: StoredTrack, url: string): PublicTrack {
     license: track.license,
     ...(track.sourceDomain ? { sourceDomain: track.sourceDomain } : {}),
     originalFilename: track.originalFilename,
+    ...(track.duration !== undefined ? { duration: track.duration } : {}),
     url,
   }
 }

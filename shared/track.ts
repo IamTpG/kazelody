@@ -7,6 +7,8 @@
  *   - License lấy từ `LICENSES` (CC-BY bắt buộc có phiên bản). Nguồn là tên miền, có thể bỏ.
  */
 
+import { isDuration } from './time.ts'
+
 export type LicenseId = 'CC0' | 'CC-BY-4.0' | 'CC-BY-3.0' | 'CC-BY-2.0'
 
 export type License = {
@@ -62,6 +64,8 @@ export type Track = {
   sourceDomain?: string
   license: LicenseId
   originalFilename: string
+  /** Thời lượng (giây). Có thể thiếu: bài chưa được đo, hoặc nguồn không biết */
+  duration?: number
 }
 
 /** Dòng trong `tracks.json` (chưa có `url`). */
@@ -72,6 +76,7 @@ export type TrackManifestEntry = {
   artist: string
   license: LicenseId
   sourceDomain?: string
+  duration?: number
 }
 
 export type TrackManifest = {
@@ -177,6 +182,7 @@ export function isManifestEntry(value: unknown): value is TrackManifestEntry {
     typeof e.artist === 'string' &&
     typeof e.license === 'string' &&
     Object.hasOwn(LICENSES, e.license) &&
-    (e.sourceDomain === undefined || typeof e.sourceDomain === 'string')
+    (e.sourceDomain === undefined || typeof e.sourceDomain === 'string') &&
+    (e.duration === undefined || isDuration(e.duration))
   )
 }

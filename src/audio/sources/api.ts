@@ -1,4 +1,5 @@
 import type { PublicTrack } from '../../../shared/library.ts'
+import { isDuration } from '../../../shared/time.ts'
 import { LICENSES, type Track } from '../../../shared/track.ts'
 import type { MusicSource } from '../source.ts'
 
@@ -56,7 +57,9 @@ export function createApiSource(options: Options = {}): MusicSource {
           continue
         }
         urls.set(entry.id, entry.url)
-        tracks.push({ ...entry, source: 'r2' })
+        // Thời lượng chỉ để hiển thị: giá trị lạ thì bỏ riêng nó, không loại cả bài.
+        const { duration, ...rest } = entry
+        tracks.push({ ...rest, ...(isDuration(duration) ? { duration } : {}), source: 'r2' })
       }
       expiresAt = data.expiresAt
       return tracks

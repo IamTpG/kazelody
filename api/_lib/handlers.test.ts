@@ -344,6 +344,41 @@ test('add: thêm trùng id → 409 và không lặp trong thư viện', async ()
   assert.equal((await savedLibrary()).tracks.length, 1)
 })
 
+test('add: thời lượng hợp lệ được lưu (chuẩn hoá tới mili giây, không làm tròn lên); /api/tracks trả lại cho người nghe', async () => {
+  const cookie = await login()
+  for (const [n, sent, stored] of [[1, 224.6, 224.6], [2, 159.72049, 159.72], [3, 3725, 3725]] as const) {
+    storage.seed(newTrackKey(id(n), 'mp3'), { size: 100, contentType: 'audio/mpeg' })
+    const response = await api.add(req('POST', '/api/admin/tracks', { cookie, body: addBody(n, { duration: sent }) }))
+    assert.equal(response.status, 201, `duration ${sent}`)
+    assert.equal(((await read(response)) as unknown as StoredTrack).duration, stored)
+  }
+  assert.deepEqual((await savedLibrary()).tracks.map((t) => t.duration), [224.6, 159.72, 3725])
+  const pub = (await (await createTracksHandler(deps)(req('GET', '/api/tracks'))).json()) as { tracks: { duration?: number }[] }
+  assert.deepEqual(pub.tracks.map((t) => t.duration), [224.6, 159.72, 3725])
+})
+
+test('add: thiếu hoặc null thì không có thời lượng và vẫn thành công', async () => {
+  const cookie = await login()
+  for (const [n, extra] of [[1, {}], [2, { duration: null }]] as const) {
+    storage.seed(newTrackKey(id(n), 'mp3'), { size: 100, contentType: 'audio/mpeg' })
+    const response = await api.add(req('POST', '/api/admin/tracks', { cookie, body: addBody(n, extra) }))
+    assert.equal(response.status, 201)
+    assert.ok(!('duration' in ((await read(response)) as object)))
+  }
+})
+
+test('add: thời lượng không hợp lệ → 400, không ghi thư viện, không xoá file đã upload', async () => {
+  const cookie = await login()
+  storage.seed(newTrackKey(id(1), 'mp3'), { size: 100, contentType: 'audio/mpeg' })
+  for (const bad of [0, -3, 86_401, '225', true, {}]) {
+    const response = await api.add(req('POST', '/api/admin/tracks', { cookie, body: addBody(1, { duration: bad }) }))
+    assert.equal(response.status, 400, JSON.stringify(bad))
+  }
+  assert.equal(await storage.getJson(LIBRARY_KEY), null)
+  assert.deepEqual(storage.deleted, [])
+  assert.ok(await storage.head(newTrackKey(id(1), 'mp3')), 'file vẫn còn để thử lại với giá trị đúng')
+})
+
 // ---------------------------------------------------------------------------------------------
 // Danh sách / sửa / xoá
 // ---------------------------------------------------------------------------------------------

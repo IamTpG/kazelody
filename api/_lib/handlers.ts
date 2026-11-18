@@ -13,6 +13,7 @@ import {
   validateMeta,
   type StoredTrack,
 } from '../../shared/library.ts'
+import { normalizeDuration } from '../../shared/time.ts'
 import { clean } from '../../shared/track.ts'
 import {
   SESSION_COOKIE,
@@ -163,6 +164,12 @@ export function createAdminHandlers(deps: AdminDeps) {
       if (!originalFilename || originalFilename.length > MAX_FILENAME_LENGTH) throw new HttpError(400, 'Tên file gốc không hợp lệ')
       const meta = validateMeta(body)
       if (!meta.ok) throw new HttpError(400, meta.error)
+      // Thời lượng do trình duyệt của admin đo và gửi lên: chỉ để hiển thị, tuỳ chọn, phải hợp lệ nếu có.
+      let duration: number | undefined
+      if (body.duration !== undefined && body.duration !== null) {
+        duration = normalizeDuration(body.duration) ?? undefined
+        if (duration === undefined) throw new HttpError(400, 'Thời lượng không hợp lệ')
+      }
 
       const info = await deps.storage.head(key)
       if (!info) throw new HttpError(409, 'File chưa được upload lên R2')
@@ -183,6 +190,7 @@ export function createAdminHandlers(deps: AdminDeps) {
         originalFilename,
         contentType: expectedType,
         size: info.size,
+        ...(duration === undefined ? {} : { duration }),
         addedAt: deps.now().toISOString(),
       }
       const library = await readLibrary(deps.storage, deps.now())
