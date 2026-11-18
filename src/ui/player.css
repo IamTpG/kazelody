@@ -11,7 +11,8 @@
   --kz-glow: #fff6d8;
 }
 
-.kz-ui button {
+/* :where() giữ độ ưu tiên của luật reset này ở mức thấp nhất, để các lớp như .kz-row (display: flex, padding) ghi đè được. */
+:where(.kz-ui) button {
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -360,7 +361,9 @@
 .kz-row[data-on='true'] {
   opacity: 1;
 }
+/* Icon đang phát luôn nằm cùng dòng, bên trái tên bài; tên dài thì bị cắt bằng "…" chứ không đẩy icon xuống dòng. */
 .kz-row-title {
+  flex: 0 1 auto;
   min-width: 0;
   font-size: 14px;
   font-weight: 600;
@@ -387,6 +390,7 @@
 }
 .kz-eq {
   display: none;
+  flex: none;
   width: 14px;
   height: 14px;
   gap: 2px;

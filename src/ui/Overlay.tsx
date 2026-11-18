@@ -47,7 +47,7 @@ export function Overlay({ scene, value, onChange }: Props) {
       <footer className="flex flex-col items-center gap-3">
         <p
           className={`kz-hint text-xs font-medium drop-shadow-[0_1px_4px_rgba(40,40,90,0.6)] transition-opacity duration-500 ${
-            listening ? 'opacity-0' : 'opacity-85'
+            listening || listOpen ? 'opacity-0' : 'opacity-85'
           }`}
         >
           Nhấp chuột để gọi một cơn gió
