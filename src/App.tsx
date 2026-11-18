@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { wind } from './scene/uniforms'
 import { ParallaxScene } from './scene2d/ParallaxScene'
 import { VALLEY } from './scene2d/manifest'
+import { initAudio, player } from './audio'
 import { Overlay } from './ui/Overlay'
 
 // Thêm ?debug vào URL để hiện bảng FPS.
@@ -47,6 +48,12 @@ export default function App() {
   const [hour, setHour] = useState(START)
   const [quality, setQuality] = useState(START)
   const dpr = Math.round(useMaxDpr() * (MIN_QUALITY_SCALE + (1 - MIN_QUALITY_SCALE) * quality) * 100) / 100
+
+  // Nạp danh sách nhạc (không tự phát). Với ?debug, điều khiển thử bằng tay qua window.__kz.player.
+  useEffect(() => {
+    void initAudio()
+    if (DEBUG) Object.assign(window, { __kz: { player } })
+  }, [])
 
   return (
     <main className="relative h-full w-full font-sans">

@@ -3,7 +3,7 @@
 Web nghe nhạc mang không gian chữa lành, cảm hứng từ nền tranh vẽ tay của phim hoạt hình.
 Miễn phí, phi lợi nhuận, không quảng cáo.
 
-Stack: Vite + React + TypeScript + Tailwind, React Three Fiber (three.js), Howler, Cloudflare R2 (nhạc), Vercel.
+Stack: Vite + React + TypeScript + Tailwind, React Three Fiber (three.js), `<audio>` thuần cho phát nhạc, Cloudflare R2 (nhạc), Vercel.
 
 ## Chạy
 
@@ -12,12 +12,38 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build → dist/
 npm run lint       # oxlint
+npm test           # node --test: bộ phân tích tên file, hàng đợi phát
+npm run tracks     # đọc public/audio/ → public/audio/tracks.json
 ```
 
 Tham số URL (chỉ để thử):
 
-- `?debug` — hiện bảng FPS.
+- `?debug` — hiện bảng FPS và gắn `window.__kz.player` để điều khiển thử bằng tay (`play()`, `next()`, `setShuffle(true)`…).
 - `?t=4.5` — mở thẳng ở một giá trị thanh trượt giờ (0 = rạng sáng … 8 = đêm khuya; số lẻ là giữa hai mốc).
+
+## Nhạc (`src/audio`, `shared/track.ts`)
+
+Chỉ nhận nhạc **CC0** và **CC-BY**. Giao diện hiển thị: CC0 chỉ tên bài; CC-BY thêm tên tác giả. Nguồn và license vẫn lưu để kiểm tra lại.
+
+- `shared/track.ts` — kiểu `Track`, bảng license, quy tắc hiển thị (`displayLabel`) và bộ phân tích tên file. Không dùng DOM
+  để sau này `api/` cũng import được.
+- `src/audio/queue.ts` — thứ tự phát và shuffle (logic thuần, có test). `player.ts` — một `<audio>` + hàng đợi, state cho
+  `useSyncExternalStore`; hết bài thì quay vòng, bài hỏng thì bỏ qua. `source.ts` — interface `MusicSource` để cắm thêm nguồn
+  (R2, API ngoài…). `mediaSession.ts` — phím media và màn hình khoá.
+- Thời gian phát đọc thẳng từ `player.currentTime` (bằng `requestAnimationFrame`), không nằm trong state để khỏi render 60 lần/giây.
+
+### Thêm nhạc khi dev
+
+Đặt file vào `public/audio/` (không commit, bản chạy thật nằm ở R2) với tên:
+
+```
+Artist__Title__License[__nguon].ext     vd. Aria North__Quiet Hills at Dusk__CC-BY-4.0__freemusicarchive.org.mp3
+```
+
+- Phân cách là **hai dấu gạch dưới**, nên tên bài có gạch nối, `[ ]`, dấu nháy, tiếng Việt/Nhật đều dùng bình thường.
+- License: `CC0`, `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-2.0` (CC-BY bắt buộc có phiên bản). Nguồn là tên miền, có thể bỏ.
+- Tên file không được chứa `/ \ : * ? " < > |`: dùng ký tự giống hệt (`／ ： ？`).
+- Chạy `npm run tracks` để sinh `public/audio/tracks.json`; file sai quy tắc sẽ được báo kèm lý do.
 
 ## Nền 2.5D (`src/scene2d`)
 
