@@ -50,6 +50,18 @@
   opacity: 1 !important;
   height: 42%;
 }
+/* Mở playlist: thêm một lớp tối nhẹ nữa để chữ (tên bài, tác giả, thời lượng) đạt độ tương phản trên cỏ sáng ban ngày. */
+.kz-scrim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(to top, rgba(20, 30, 70, 0.45) 0%, rgba(20, 30, 70, 0.3) 50%, transparent 100%);
+  transition: opacity 0.4s ease;
+}
+.kz-ui[data-list='true'] .kz-scrim::after {
+  opacity: 1;
+}
 
 /* ---------- Player ---------- */
 .kz-player {
@@ -191,20 +203,52 @@
   flex-direction: column;
   gap: 7px;
 }
+/* Dòng tên bài: [tên bài co được] [tác giả] ........ [giờ đã phát / tổng].
+   Thứ tự nhường chỗ khi dòng chật: tên bài bị cắt bằng "…" trước; tác giả giữ chỗ tới 45% dòng (CC-BY cần hiện tác giả)
+   rồi mới tự cắt; giờ không bao giờ bị cắt. Luôn một dòng. */
+.kz-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
 .kz-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-shadow: var(--kz-txt-shadow);
   /* Mỗi lần đổi bài, React dựng lại phần tử này nên tên mới trôi nhẹ lên. */
   animation: kz-title-in 0.7s ease-out;
 }
-.kz-title i {
-  font-style: normal;
+.kz-title-main {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kz-title-artist {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
   opacity: 0.75;
+}
+.kz-time {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  /* Chữ số đều bề rộng: giờ chạy mỗi giây mà không bị "rung". */
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  text-shadow: var(--kz-txt-shadow);
 }
 @keyframes kz-title-in {
   from {
@@ -354,7 +398,7 @@
   gap: 8px;
   width: 100%;
   padding: 8px 14px;
-  opacity: 0.82;
+  opacity: 0.9;
   transition: opacity 0.2s;
 }
 .kz-row:hover,
@@ -362,20 +406,45 @@
   opacity: 1;
 }
 /* Icon đang phát luôn nằm cùng dòng, bên trái tên bài; tên dài thì bị cắt bằng "…" chứ không đẩy icon xuống dòng. */
-.kz-row-title {
+/* Dòng playlist: [equalizer] [tên bài co được] [tác giả] [· thời lượng]. Tên bài nhường chỗ trước, tác giả giữ chỗ
+   (tối đa 16rem hoặc 40% màn hình), thời lượng không bao giờ bị cắt. */
+.kz-row-text {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
   flex: 0 1 auto;
   min-width: 0;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-shadow: var(--kz-txt-shadow);
 }
-.kz-row-title i {
-  font-style: normal;
+.kz-row-main {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kz-row-artist {
+  flex: 0 0 auto;
+  max-width: min(16rem, 40vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
-  opacity: 0.75;
+  opacity: 0.88;
+}
+.kz-row-time {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+  text-shadow: var(--kz-txt-shadow);
+}
+.kz-row-time::before {
+  content: '·';
+  margin-right: 0.5em;
 }
 /* Mở playlist: từng dòng nổi lên lần lượt, dòng gần player lên trước. */
 .kz-panel[data-open='true'] .kz-row {

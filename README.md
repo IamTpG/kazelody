@@ -32,6 +32,10 @@ Chỉ nhận nhạc **CC0** và **CC-BY**. Giao diện hiển thị: CC0 chỉ t
   `useSyncExternalStore`; hết bài thì quay vòng, bài hỏng thì bỏ qua. `source.ts` — interface `MusicSource` để cắm thêm nguồn
   (R2, API ngoài…). `mediaSession.ts` — phím media và màn hình khoá.
 - Thời gian phát đọc thẳng từ `player.currentTime` (bằng `requestAnimationFrame`), không nằm trong state để khỏi render 60 lần/giây.
+- **Thời lượng** (`duration`, giây, tuỳ chọn) được đo **lúc upload** rồi lưu trong `tracks.json`: ở trình duyệt bằng thẻ `<audio>` (trang admin),
+  ở Node bằng `music-metadata` (`npm run tracks`, `push-tracks`, `dev:admin --seed`). Nhờ vậy playlist hiện được thời lượng mọi bài mà
+  **không tốn thêm lượt đọc R2** nào. Giá trị lưu là số thực (không làm tròn lên) để playlist và cụm player cùng hiện đúng một con số.
+  Bài tải lên trước khi có tính năng này chưa có thời lượng (playlist không hiện số cho bài đó); xoá và tải lại là có.
 
 ### Giao diện trình phát (`src/ui`)
 
@@ -42,6 +46,9 @@ vào player, đậm hơn khi mở playlist). Toàn bộ hiệu ứng nằm trong
   next / shuffle. Không có bài nào thì player ẩn hẳn. Phím Space bật/tắt phát; Escape hoặc bấm ra ngoài thì đóng playlist.
 - `ProgressBar.tsx` đọc `player.currentTime` mỗi khung hình và ghi thẳng `transform` (không setState), nên đường chạy trượt đều.
   Kéo hoặc bấm để tua; phím ←/→ tua 5 giây.
+- `PlaybackTime.tsx` hiện "đã phát / tổng" (`1:23 / 3:45`, bài từ 1 giờ thì `0:12:34 / 1:02:03`) ở cuối dòng tên bài; cập nhật mỗi giây
+  bằng cách ghi thẳng vào chữ, không render lại React. Tên bài quá dài bị cắt bằng "…" trước, **tác giả giữ chỗ tới 45% dòng** (CC-BY cần
+  hiện tác giả), giờ không bao giờ bị cắt; nội dung đầy đủ ở tooltip. Playlist hiện `· thời lượng` sau mỗi bài theo cùng quy tắc.
 - `TimeArc.tsx` (góc phải trên) có gợi ý cho người mới: mặt trời tự trượt nhẹ cho tới lần tương tác đầu tiên.
 - Cả cụm khẽ đung đưa như trong gió; `prefers-reduced-motion` tắt hết hiệu ứng.
 
@@ -147,7 +154,7 @@ Trang này tải theo yêu cầu (`React.lazy` trong `src/Root.tsx`), nên trang
 
 - **Đăng nhập** bằng `ADMIN_PASSWORD`; phiên hết hạn giữa chừng thì tự về màn đăng nhập.
 - **Thêm nhạc**: kéo thả hoặc chọn nhiều file. Metadata điền sẵn từ tên file (`Artist__Title__License[__nguon]`); sai quy tắc thì
-  điền tay. Đuôi lạ, quá 30 MB hoặc trùng tên file với bài đã có thì bị chặn ngay, không gọi mạng. File upload thẳng từ trình duyệt lên R2
+  điền tay. Thời lượng được đo ngay trên trình duyệt (hiện cạnh dung lượng) và lưu cùng bài. Đuôi lạ, quá 30 MB hoặc trùng tên file với bài đã có thì bị chặn ngay, không gọi mạng. File upload thẳng từ trình duyệt lên R2
   (XHR, có tiến độ). Nếu file đã lên R2 mà bước ghi thư viện lỗi, thử lại **chỉ ghi lại**, không upload lại.
 - **Thư viện**: sửa metadata, ↑ ↓ đổi thứ tự phát, xoá (xác nhận 2 bước, xoá cả file trên R2). Thay đổi tới người nghe sau tối đa 5 phút.
 - Logic không dính giao diện nằm ở `api.ts` (gọi API) và `upload.ts` (kiểm tra, điền sẵn, điều phối 3 bước), đều có test.

@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { formatDuration } from '../../shared/time.ts'
 import { player, usePlayer } from '../audio'
 
 const SEEK_STEP = 5
-
-function formatTime(seconds: number) {
-  const s = Math.max(0, Math.floor(seconds))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
 
 /*
  * Đường tiến độ + núm. Vị trí đọc thẳng từ player.currentTime mỗi khung hình rồi ghi vào `transform` qua ref:
@@ -33,7 +29,7 @@ export function ProgressBar() {
     if (bar.current && second !== lastSecond.current) {
       lastSecond.current = second
       bar.current.setAttribute('aria-valuenow', String(second))
-      bar.current.setAttribute('aria-valuetext', `${formatTime(time)} / ${formatTime(total)}`)
+      bar.current.setAttribute('aria-valuetext', `${formatDuration(time, total)} / ${formatDuration(total, total)}`)
     }
   }, [])
 

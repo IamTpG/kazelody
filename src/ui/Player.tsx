@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { displayParts } from '../../shared/track.ts'
+import { displayLabel, displayParts } from '../../shared/track.ts'
 import { player, usePlayer } from '../audio'
 import { ListIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, ShuffleIcon } from './icons'
 import { Motes } from './Motes'
+import { PlaybackTime } from './PlaybackTime'
 import { Playlist } from './Playlist'
 import { ProgressBar } from './ProgressBar'
 import { VolumeControl } from './VolumeControl'
@@ -77,16 +78,27 @@ export function Player({ open, onOpenChange, night }: Props) {
         </button>
 
         <div className="kz-meta">
-          {/* Đổi `key` theo bài để tên bài trôi nhẹ lên mỗi lần đổi. */}
-          <div className="kz-title" key={state.current?.id ?? 'none'} aria-live="polite">
-            {failed ? (
-              'Không phát được nhạc'
-            ) : (
-              <>
-                {parts.title}
-                {parts.artist && <i> — {parts.artist}</i>}
-              </>
-            )}
+          <div className="kz-line">
+            {/* Đổi `key` theo bài để tên bài trôi nhẹ lên mỗi lần đổi. Tên bài và tác giả là hai phần tử riêng:
+                tên bài bị cắt bằng "…" trước, tác giả (cần hiển thị với CC-BY) giữ chỗ tới 45% dòng. Nội dung đầy đủ ở tooltip. */}
+            <div
+              className="kz-title"
+              key={state.current?.id ?? 'none'}
+              aria-live="polite"
+              title={state.current && !failed ? displayLabel(state.current) : undefined}
+            >
+              {failed ? (
+                'Không phát được nhạc'
+              ) : (
+                <>
+                  <span className="kz-title-main">{parts.title}</span>
+                  {/* Khoảng trắng chỉ để trình đọc màn hình đọc tách từ; trong flex nó không tạo khoảng cách. */}
+                  {parts.artist && ' '}
+                  {parts.artist && <span className="kz-title-artist">— {parts.artist}</span>}
+                </>
+              )}
+            </div>
+            <PlaybackTime />
           </div>
           <ProgressBar />
         </div>

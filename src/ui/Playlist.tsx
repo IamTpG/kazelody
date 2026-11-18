@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
-import { displayParts, type Track } from '../../shared/track.ts'
+import { formatDuration } from '../../shared/time.ts'
+import { displayLabel, displayParts, type Track } from '../../shared/track.ts'
 import { player } from '../audio'
 
 type Props = {
@@ -34,6 +35,7 @@ export function Playlist({ open, tracks, index, playing }: Props) {
                 data-on={i === index}
                 data-paused={!playing}
                 aria-current={i === index ? 'true' : undefined}
+                title={track.duration ? `${displayLabel(track)} · ${formatDuration(track.duration)}` : displayLabel(track)}
                 style={{ '--i': tracks.length - 1 - i } as CSSProperties}
                 onClick={() => player.playIndex(i)}
               >
@@ -42,10 +44,12 @@ export function Playlist({ open, tracks, index, playing }: Props) {
                   <span />
                   <span />
                 </span>
-                <span className="kz-row-title">
-                  {title}
-                  {artist && <i> — {artist}</i>}
+                <span className="kz-row-text">
+                  <span className="kz-row-main">{title}</span>
+                  {artist && ' '}
+                  {artist && <span className="kz-row-artist">— {artist}</span>}
                 </span>
+                {track.duration ? <span className="kz-row-time">{formatDuration(track.duration)}</span> : null}
               </button>
             </li>
           )
