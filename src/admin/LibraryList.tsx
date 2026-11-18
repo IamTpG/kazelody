@@ -57,42 +57,42 @@ export function LibraryList({ library, onChanged, onError }: Props) {
   }
 
   return (
-    <section className={`${card} grid gap-4`} aria-labelledby="library-title">
+    <section className={`${card} grid grid-cols-[minmax(0,1fr)] gap-4`} aria-labelledby="library-title">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="library-title" className="text-lg font-bold">
-          Thư viện {library && <span className="text-sm font-medium text-white/60">({tracks.length} bài, theo thứ tự phát)</span>}
+          Thư viện {library && <span className="text-sm font-medium text-white/75">({tracks.length} bài, theo thứ tự phát)</span>}
         </h2>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-rose-300/20 px-3 py-2 text-sm text-rose-100">
+        <p role="alert" className="rounded-lg bg-rose-400/20 ring-1 ring-rose-200/40 px-3 py-2 text-sm text-rose-100">
           {error}
         </p>
       )}
 
-      {library === null && <p className="text-sm text-white/70">Đang tải thư viện…</p>}
-      {library && tracks.length === 0 && <p className="text-sm text-white/70">Chưa có bài nào. Kéo file nhạc vào khung phía trên để bắt đầu.</p>}
+      {library === null && <p className="text-sm text-white/80">Đang tải thư viện…</p>}
+      {library && tracks.length === 0 && <p className="text-sm text-white/80">Chưa có bài nào. Kéo file nhạc vào khung phía trên để bắt đầu.</p>}
 
-      <ol className="grid gap-2">
+      <ol className="grid grid-cols-[minmax(0,1fr)] gap-2">
         {tracks.map((track, index) => {
           const locked = busy !== null
           const attribution = LICENSES[track.license].attributionRequired
           const isEditing = editing?.id === track.id
 
           return (
-            <li key={track.id} className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+            <li key={track.id} className="rounded-xl bg-black/20 p-3 ring-1 ring-white/15">
               {isEditing ? (
                 <EditForm editing={editing} onChange={setEditing} onSave={() => void saveEdit()} onCancel={() => { setEditing(null); setError(null) }} saving={busy === track.id} />
               ) : (
                 <div className="flex items-start gap-3">
-                  <span className="w-6 shrink-0 pt-0.5 text-right text-xs tabular-nums text-white/50">{index + 1}</span>
+                  <span className="w-6 shrink-0 pt-0.5 text-right text-xs tabular-nums text-white/70">{index + 1}</span>
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-semibold">{track.title}</p>
-                    <p className="break-words text-sm text-white/70">
+                    <p className="break-words text-sm text-white/80">
                       {track.artist}
-                      {!attribution && <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs">CC0: người nghe chỉ thấy tên bài</span>}
+                      {!attribution && <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-xs">CC0: người nghe chỉ thấy tên bài</span>}
                     </p>
-                    <p className="mt-0.5 text-xs text-white/50">
+                    <p className="mt-0.5 text-xs text-white/70">
                       {LICENSES[track.license].name} · {track.sourceDomain ?? 'không ghi nguồn'} · {formatBytes(track.size)}
                     </p>
                   </div>
@@ -133,7 +133,7 @@ export function LibraryList({ library, onChanged, onError }: Props) {
         })}
       </ol>
 
-      <p className="text-xs text-white/50">Thay đổi hiển thị với người nghe sau tối đa 5 phút (CDN giữ danh sách bài).</p>
+      <p className="text-xs text-white/70">Thay đổi hiển thị với người nghe sau tối đa 5 phút (CDN giữ danh sách bài).</p>
     </section>
   )
 }
@@ -150,22 +150,22 @@ function EditForm({ editing, onChange, onSave, onCancel, saving }: EditFormProps
   const set = (patch: Partial<Editing>) => onChange({ ...editing, ...patch })
   return (
     <form
-      className="grid gap-3"
+      className="grid grid-cols-[minmax(0,1fr)] gap-3"
       onSubmit={(event) => {
         event.preventDefault()
         onSave()
       }}
     >
-      <fieldset disabled={saving} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="grid gap-1 text-xs text-white/70">
+      <fieldset disabled={saving} className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="grid gap-1 text-xs text-white/80">
           Tên bài
           <input className={inputClass} value={editing.title} onChange={(event) => set({ title: event.target.value })} autoFocus />
         </label>
-        <label className="grid gap-1 text-xs text-white/70">
+        <label className="grid gap-1 text-xs text-white/80">
           Tác giả
           <input className={inputClass} value={editing.artist} onChange={(event) => set({ artist: event.target.value })} />
         </label>
-        <label className="grid gap-1 text-xs text-white/70">
+        <label className="grid gap-1 text-xs text-white/80">
           License
           <select className={selectClass} value={editing.license} onChange={(event) => set({ license: event.target.value })}>
             {(Object.keys(LICENSES) as LicenseId[]).map((id) => (
@@ -175,7 +175,7 @@ function EditForm({ editing, onChange, onSave, onCancel, saving }: EditFormProps
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-white/70">
+        <label className="grid gap-1 text-xs text-white/80">
           Nguồn (tên miền, tuỳ chọn)
           <input className={inputClass} value={editing.sourceDomain} onChange={(event) => set({ sourceDomain: event.target.value })} />
         </label>

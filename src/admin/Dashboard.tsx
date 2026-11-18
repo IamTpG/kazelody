@@ -50,7 +50,7 @@ export function Dashboard({ onSignedOut }: Props) {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-6 p-4 sm:p-6">
+    <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-5xl gap-6 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-wide">
           KazeLody
@@ -67,7 +67,7 @@ export function Dashboard({ onSignedOut }: Props) {
       </header>
 
       {loadError && (
-        <p role="alert" className="rounded-lg bg-rose-300/20 px-3 py-2 text-sm text-rose-100">
+        <p role="alert" className="rounded-lg bg-rose-400/20 ring-1 ring-rose-200/40 px-3 py-2 text-sm text-rose-100">
           Không tải được thư viện: {loadError}{' '}
           <button type="button" className="underline" onClick={() => void reload()}>
             Thử lại

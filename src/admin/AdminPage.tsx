@@ -47,8 +47,8 @@ export default function AdminPage() {
 
   return (
     // Trang nghe nhạc khoá cuộn toàn trang; riêng trang admin cần cuộn nên tự cuộn trong khung này.
-    <div className="h-full overflow-y-auto bg-gradient-to-b from-[#3d4776] via-[#56649f] to-[#6f7fb8] font-sans text-white">
-      {auth === 'checking' && <p className="p-6 text-center text-white/70">Đang kiểm tra phiên…</p>}
+    <div className="h-full overflow-y-auto bg-gradient-to-b from-[#121634] via-[#1a2048] to-[#262f62] font-sans text-white">
+      {auth === 'checking' && <p className="p-6 text-center text-white/80">Đang kiểm tra phiên…</p>}
       {auth === 'out' && <LoginForm notice={notice} onSignedIn={() => { setNotice(null); setAuth('in') }} />}
       {auth === 'in' && <Dashboard onSignedOut={signedOut} />}
     </div>

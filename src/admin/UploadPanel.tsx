@@ -118,13 +118,13 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
   }
 
   return (
-    <section className={`${card} grid gap-4`} aria-labelledby="upload-title">
+    <section className={`${card} grid grid-cols-[minmax(0,1fr)] gap-4`} aria-labelledby="upload-title">
       <div>
         <h2 id="upload-title" className="text-lg font-bold">
           Thêm nhạc
         </h2>
-        <p className="mt-1 text-sm text-white/70">
-          Tên file theo dạng <code className="rounded bg-white/10 px-1">Artist__Title__License__nguon.mp3</code> sẽ được điền sẵn; sai quy
+        <p className="mt-1 text-sm text-white/80">
+          Tên file theo dạng <code className="rounded bg-black/30 px-1">Artist__Title__License__nguon.mp3</code> sẽ được điền sẵn; sai quy
           tắc thì bạn điền tay. Chỉ nhận nhạc CC0 và CC-BY.
         </p>
       </div>
@@ -142,11 +142,11 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed px-4 py-8 text-center transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-          dragging ? 'border-white bg-white/20' : 'border-white/40 hover:bg-white/10'
+          dragging ? 'border-white bg-white/20' : 'border-white/60 bg-black/15 hover:bg-white/10'
         }`}
       >
         <span className="text-base font-semibold">Kéo file nhạc vào đây</span>
-        <span className="text-sm text-white/70">hoặc bấm để chọn (mp3, ogg, opus, m4a, webm, wav · tối đa 30 MB mỗi file)</span>
+        <span className="text-sm text-white/80">hoặc bấm để chọn (mp3, ogg, opus, m4a, webm, wav · tối đa 30 MB mỗi file)</span>
         <input
           ref={input}
           type="file"
@@ -162,7 +162,7 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
 
       {rows.length > 0 && (
         <>
-          <ul className="grid gap-3" aria-label="Hàng đợi tải lên">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-3" aria-label="Hàng đợi tải lên">
             {rows.map((row) => (
               <RowItem
                 key={row.id}
@@ -180,7 +180,7 @@ export function UploadPanel({ existing, onUploaded, onError }: Props) {
                 {busy ? 'Đang tải lên…' : `Tải lên ${pending.length} bài`}
               </button>
             ) : (
-              <p className="text-sm text-white/70">Không có dòng nào tải lên được. Bỏ các dòng bị chặn khỏi hàng đợi hoặc thêm file khác.</p>
+              <p className="text-sm text-white/80">Không có dòng nào tải lên được. Bỏ các dòng bị chặn khỏi hàng đợi hoặc thêm file khác.</p>
             )}
             {hasDone && !busy && (
               <button type="button" className={ghostButton} onClick={() => setRows((previous) => previous.filter((row) => row.status !== 'done'))}>
@@ -214,7 +214,7 @@ function RowItem({ row, locked, onChange, onRemove }: RowItemProps) {
 
   if (row.status === 'done') {
     return (
-      <li className="flex items-center gap-2 rounded-xl bg-emerald-300/15 px-3 py-2 text-sm ring-1 ring-emerald-200/30">
+      <li className="flex items-center gap-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-sm ring-1 ring-emerald-200/50">
         <span aria-hidden="true">✓</span>
         <span className="min-w-0 truncate font-semibold">{row.draft.title}</span>
         <span className="text-emerald-100">{STATUS_LABEL.done}</span>
@@ -223,13 +223,13 @@ function RowItem({ row, locked, onChange, onRemove }: RowItemProps) {
   }
 
   return (
-    <li className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+    <li className="rounded-xl bg-black/20 p-3 ring-1 ring-white/15">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold" title={row.file.name}>
             {row.file.name}
           </p>
-          <p className="text-xs text-white/60">{formatBytes(row.file.size)}</p>
+          <p className="text-xs text-white/75">{formatBytes(row.file.size)}</p>
         </div>
         <button type="button" className={ghostButton} onClick={onRemove} disabled={locked || active} aria-label={`Bỏ ${row.file.name} khỏi hàng đợi`}>
           ✕
@@ -243,16 +243,16 @@ function RowItem({ row, locked, onChange, onRemove }: RowItemProps) {
       )}
 
       {!row.problem && !row.duplicate && (
-        <fieldset disabled={!editable} className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="grid gap-1 text-xs text-white/70">
+        <fieldset disabled={!editable} className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="grid gap-1 text-xs text-white/80">
             Tên bài
             <input className={inputClass} value={row.draft.title} onChange={(event) => set({ title: event.target.value })} />
           </label>
-          <label className="grid gap-1 text-xs text-white/70">
+          <label className="grid gap-1 text-xs text-white/80">
             Tác giả
             <input className={inputClass} value={row.draft.artist} onChange={(event) => set({ artist: event.target.value })} />
           </label>
-          <label className="grid gap-1 text-xs text-white/70">
+          <label className="grid gap-1 text-xs text-white/80">
             License
             <select className={selectClass} value={row.draft.license} onChange={(event) => set({ license: event.target.value })}>
               <option value="">Chọn license…</option>
@@ -263,7 +263,7 @@ function RowItem({ row, locked, onChange, onRemove }: RowItemProps) {
               ))}
             </select>
           </label>
-          <label className="grid gap-1 text-xs text-white/70">
+          <label className="grid gap-1 text-xs text-white/80">
             Nguồn (tên miền, tuỳ chọn)
             <input
               className={inputClass}

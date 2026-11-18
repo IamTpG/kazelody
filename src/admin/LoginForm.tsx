@@ -34,9 +34,9 @@ export function LoginForm({ onSignedIn, notice }: Props) {
         <span className="mt-1 block text-sm font-medium opacity-80">Quản trị</span>
       </h1>
 
-      <form onSubmit={submit} className={`${card} grid gap-4`} aria-label="Đăng nhập quản trị">
+      <form onSubmit={submit} className={`${card} grid grid-cols-[minmax(0,1fr)] gap-4`} aria-label="Đăng nhập quản trị">
         {notice && (
-          <p role="status" className="rounded-lg bg-amber-200/20 px-3 py-2 text-sm text-amber-100">
+          <p role="status" className="rounded-lg bg-amber-300/15 ring-1 ring-amber-200/40 px-3 py-2 text-sm text-amber-100">
             {notice}
           </p>
         )}
@@ -53,7 +53,7 @@ export function LoginForm({ onSignedIn, notice }: Props) {
           />
         </label>
         {error && (
-          <p role="alert" className="rounded-lg bg-rose-300/20 px-3 py-2 text-sm text-rose-100">
+          <p role="alert" className="rounded-lg bg-rose-400/20 ring-1 ring-rose-200/40 px-3 py-2 text-sm text-rose-100">
             {error}
           </p>
         )}
@@ -63,7 +63,7 @@ export function LoginForm({ onSignedIn, notice }: Props) {
       </form>
 
       <p className="text-center text-sm">
-        <a href="/" className="text-white/70 underline decoration-white/30 underline-offset-4 hover:text-white">
+        <a href="/" className="text-white underline decoration-white/60 underline-offset-4 hover:decoration-white">
           Về trang nghe nhạc
         </a>
       </p>
