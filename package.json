@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node --test \"shared/**/*.test.ts\" \"src/audio/**/*.test.ts\" \"api/**/*.test.ts\"",
+    "test": "node --test \"shared/**/*.test.ts\" \"src/audio/**/*.test.ts\" \"api/**/*.test.ts\" \"src/admin/**/*.test.ts\"",
     "tracks": "node tools/build-tracks.mjs",
     "push-tracks": "node tools/push-tracks.mjs",
+    "dev:admin": "node tools/dev-admin.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
