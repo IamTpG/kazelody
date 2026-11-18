@@ -25,3 +25,7 @@ dist-ssr
 
 # Ảnh gốc render từ tools/capture-scene.mjs (nặng); app chỉ dùng bản trong public/scenes
 captures/
+
+# Nhạc dùng khi dev (nặng, không commit); bản chạy thật nằm ở Cloudflare R2
+public/audio/*
+!public/audio/.gitkeep

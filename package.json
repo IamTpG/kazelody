@@ -7,9 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test \"shared/**/*.test.ts\" \"src/audio/**/*.test.ts\" \"api/**/*.test.ts\" \"src/admin/**/*.test.ts\"",
+    "tracks": "node tools/build-tracks.mjs",
+    "push-tracks": "node tools/push-tracks.mjs",
+    "dev:admin": "node tools/dev-admin.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1171.0",
+    "@aws-sdk/s3-request-presigner": "^3.1171.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "react": "^19.3.1",
@@ -23,6 +29,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "music-metadata": "^12.7.0",
     "oxlint": "^1.90.0",
     "playwright-core": "^1.65.1",
     "tailwindcss": "^4.3.5",
