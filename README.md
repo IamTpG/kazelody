@@ -59,6 +59,86 @@ Artist__Title__License[__nguon].ext     vd. Aria North__Quiet Hills at Dusk__CC-
   (dev server không phục vụ được đường dẫn chứa `#`): thay bằng `＃`. Dấu phẩy, `&`, `;`, `'` thì dùng bình thường.
 - Chạy `npm run tracks` để sinh `public/audio/tracks.json`; file sai quy tắc sẽ được báo kèm lý do.
 
+## Nhạc trên Cloudflare R2 (`api/`)
+
+Bản chạy thật không dùng `public/audio/`. Nhạc nằm trong **bucket R2 private**; người nghe chỉ có **URL ký (presigned) ngắn hạn**
+do Vercel Functions cấp, nên không ai lấy được link cố định tới file. Đây chỉ là rào cản mềm (ai cũng ghi âm được, và DRM thật
+sẽ mâu thuẫn với CC-BY).
+
+```
+trình duyệt ──GET /api/tracks──► hàm Vercel ──tracks.json──► R2 (private)
+     ▲                              │ ký URL (cục bộ, không gọi mạng)
+     └──── nghe trực tiếp (Range) ──┴──────────────► R2
+```
+
+- `GET /api/tracks` trả danh sách bài kèm URL ký (hạn 3 giờ), CDN của Vercel giữ **5 phút** (`s-maxage=300`) nên R2 và hàm hầu như
+  không bị gọi dù đông người nghe. Player tự xin URL mới khi còn dưới 15 phút (`src/audio/sources/api.ts`), phiên nghe dài vẫn chuyển
+  bài được.
+- Thư viện là một file `tracks.json` trong bucket (thứ tự mảng = thứ tự phát). Không có cơ sở dữ liệu.
+- `api/admin/*`: đăng nhập bằng mật khẩu (cookie phiên ký HMAC, HttpOnly + SameSite=Strict, thêm kiểm tra `Origin`), xin URL upload
+  (trình duyệt upload thẳng lên R2 vì file ~5 MB vượt giới hạn body của hàm), thêm / sửa / xoá / xếp lại bài. Trang `/admin` dùng các
+  endpoint này.
+
+| Endpoint | Việc |
+|---|---|
+| `GET /api/tracks` | Công khai: danh sách bài + URL nghe |
+| `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/session` | Phiên quản trị |
+| `POST /api/admin/upload-url` | `{filename, size}` → URL PUT ký sẵn (15 phút, ký cả Content-Type) |
+| `GET / POST /api/admin/tracks` | Xem thư viện / ghi nhận file đã upload (kiểm tra file thật có trên R2, đúng loại, ≤ 30 MB) |
+| `PATCH / DELETE /api/admin/tracks/:id` | Sửa metadata hoặc `{moveTo}` / gỡ bài và xoá file |
+
+### Thiết lập một lần
+
+1. **Cloudflare → R2**: tạo bucket (vd. `kazelody-audio`), **không** bật truy cập công khai. Tạo **API token** quyền *Object Read & Write*,
+   chỉ cho bucket này; lấy *Account ID*, *Access Key ID*, *Secret Access Key*.
+2. **CORS của bucket** (Settings → CORS policy), để trang admin upload được bằng URL ký:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://kazelody.iamtpg.dev", "http://localhost:5173", "http://localhost:3000"],
+       "AllowedMethods": ["GET", "HEAD", "PUT"],
+       "AllowedHeaders": ["content-type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   (Phát nhạc bằng `<audio>` không cần CORS; chỉ upload từ trình duyệt mới cần. Origin của bản Preview `*.vercel.app` thêm vào khi cần
+   thử upload ở đó.)
+3. **Biến môi trường** trên Vercel (Production **và** Preview):
+
+   | Biến | Ghi chú |
+   |---|---|
+   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Từ bước 1 |
+   | `ADMIN_PASSWORD` | Mật khẩu trang quản trị, ≥ 8 ký tự (nên dài hơn nhiều) |
+   | `SESSION_SECRET` | Chuỗi ngẫu nhiên ≥ 32 ký tự, vd. `openssl rand -hex 32`. Đổi giá trị này là mọi phiên đăng nhập hết hiệu lực |
+   | `PUBLIC_ORIGIN` | *Tuỳ chọn.* Bỏ trống thì so `Origin` với chính host của request (đúng cho cả Preview). Chỉ đặt khi có proxy viết lại Origin |
+   | `R2_PRESIGN_TTL_SECONDS` | *Tuỳ chọn.* Hạn URL nghe (60 – 604800), mặc định 10800. Đặt ngắn (vd. 120) để thử cơ chế làm mới URL |
+
+   Thiếu biến thì API trả `503 Dịch vụ nhạc chưa được cấu hình` (tên biến chỉ ghi vào log máy chủ).
+4. **DNS**: `kazelody` CNAME → `cname.vercel-dns.com`, **DNS only** (đám mây xám), rồi thêm domain vào project Vercel.
+
+### Đẩy nhạc đã có ở máy lên R2
+
+Cần các biến `R2_*` trong shell (hoặc file env riêng của bạn):
+
+```bash
+npm run push-tracks -- --dry-run                        # chỉ liệt kê, không cần R2 (kiểm tra tên file)
+node --env-file=.env.local tools/push-tracks.mjs         # upload thật; chạy lại không tạo bản trùng
+```
+
+Metadata đọc từ tên file như `npm run tracks`; file lên R2 với khoá `audio/<uuid>.<đuôi>` (tên gốc chỉ lưu làm metadata).
+
+### Chạy và kiểm tra
+
+- `npm run dev` không chạy `api/`: player rơi về `public/audio/` như cũ.
+- Thử API ở máy: `vercel dev` (cần Vercel CLI và env). Thử trên mạng: push nhánh để có **Preview deployment** rồi mở
+  `/api/tracks` (chưa có nhạc → `{"tracks":[],…}`; thiếu env → 503).
+- Test: `npm test` (API chạy với kho lưu trữ trong bộ nhớ). Việc R2 thật có nhận URL ký hay không chỉ kiểm tra được bằng một lần
+  upload thật.
+
 ## Nền 2.5D (`src/scene2d`)
 
 Cảnh được **render sẵn một lần** trên máy dev; người dùng chỉ tải ảnh tĩnh rồi GPU ghép lại thành cảnh có chiều sâu.
@@ -133,7 +213,8 @@ Bản dựng toàn bộ bằng shader (đồi, 60k lá cỏ, cây bông xù, sky
 ## Triển khai
 
 Vercel, nối với nhánh `main`: preset Vite (`npm run build`, output `dist`), không cần cấu hình thêm.
-Tổng ảnh cả ngày khoảng 4 MB, trang chỉ tải mốc đang xem trước. Nhạc để ở Cloudflare R2 (miễn phí băng thông ra).
+Tổng ảnh cả ngày khoảng 4 MB, trang chỉ tải mốc đang xem trước. Nhạc để ở Cloudflare R2 (miễn phí băng thông ra), hàm trong
+`api/` được Vercel tự triển khai cùng project; cần các biến môi trường ở phần "Nhạc trên Cloudflare R2".
 
 ## Tài nguyên & ghi công
 
