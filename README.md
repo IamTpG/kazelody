@@ -57,4 +57,3 @@ tools/          CLI tools: local manifest, push to R2, dev sandbox, scene captur
 
 - Valley scene: [painted-valley](https://git.patch.gg/blendi/painted-valley) by blendi / Patch. Code MIT, art CC0 1.0 (see `LICENCE-NOTES.md`
   in that repository).
-- Foliage shading technique based on [craftzdog/ghibli-style-shader](https://github.com/craftzdog/ghibli-style-shader) (MIT).
