@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { KazeMark } from '../ui/icons'
 import { adminApi } from './api'
 import { card, errorMessage, inputClass, primaryButton } from './ui'
 
@@ -30,6 +31,7 @@ export function LoginForm({ onSignedIn, notice }: Props) {
   return (
     <main className="mx-auto flex min-h-full max-w-sm flex-col justify-center gap-6 p-4">
       <h1 className="text-center text-3xl font-bold tracking-wide">
+        <KazeMark className="mr-2 inline-block h-[1.05em] w-auto align-[-0.15em]" />
         KazeLody
         <span className="mt-1 block text-sm font-medium opacity-80">Quản trị</span>
       </h1>
