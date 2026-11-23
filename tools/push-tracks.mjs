@@ -3,7 +3,7 @@
 //   node --env-file=.env.local tools/push-tracks.mjs [--dry-run] [--dir public/audio]
 //   npm run push-tracks -- --dry-run
 //
-// Cần các biến môi trường R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (xem README). Tên file theo quy tắc
+// Cần các biến môi trường R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (xem docs/backend-r2.md). Tên file theo quy tắc
 // Artist__Title__License[__nguon].ext như npm run tracks. Chạy lại không tạo bản trùng. `--dry-run` chỉ liệt kê, không upload;
 // nếu chưa có biến môi trường thì chỉ kiểm tra tên file.
 import { readFile, readdir, stat } from 'node:fs/promises';

@@ -4,7 +4,7 @@ import { createR2Storage } from './r2.ts'
 
 /*
  * Ký URL là phép tính cục bộ (không gọi mạng) nên kiểm tra được cấu trúc URL ngay cả khi dùng khoá giả.
- * Không kiểm tra được việc R2 thật có chấp nhận hay không: phần đó cần một lần upload thật (xem README).
+ * Không kiểm tra được việc R2 thật có chấp nhận hay không: phần đó cần một lần upload thật (xem docs/backend-r2.md).
  */
 
 const KEY = 'audio/00000000-0000-4000-8000-000000000001.mp3'
