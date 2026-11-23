@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Library } from '../../shared/library.ts'
+import { KazeMark } from '../ui/icons'
 import { ApiError, adminApi } from './api'
 import { LibraryList } from './LibraryList'
 import { UploadPanel } from './UploadPanel'
@@ -53,6 +54,7 @@ export function Dashboard({ onSignedOut }: Props) {
     <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-5xl gap-6 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-wide">
+          <KazeMark className="mr-2 inline-block h-[1.05em] w-auto align-[-0.15em]" />
           KazeLody
           <span className="ml-2 text-sm font-medium opacity-80">Quản trị</span>
         </h1>

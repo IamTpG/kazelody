@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePlayer } from '../audio'
 import { clockAt, nightAt, valueAt, type SceneManifest } from '../scene2d/manifest'
+import { KazeMark } from './icons'
 import { Player } from './Player'
 import { TimeArc } from './TimeArc'
 import './player.css'
@@ -28,6 +29,7 @@ export function Overlay({ scene, value, onChange }: Props) {
 
       <header className="flex items-start justify-between">
         <h1 className="text-2xl font-bold tracking-wide drop-shadow-[0_2px_8px_rgba(40,40,90,0.45)] sm:text-3xl">
+          <KazeMark className="mr-2 inline-block h-[1.05em] w-auto align-[-0.15em]" />
           KazeLody
           {/* Màn hình hẹp: phụ đề xuống dòng riêng để không chạm vào TimeArc bên phải. */}
           <span className="block text-sm font-medium opacity-80 sm:ml-2 sm:inline sm:align-middle">風 · melody</span>
